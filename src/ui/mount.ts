@@ -8,6 +8,8 @@ export interface MountOptions {
   anchor: string | Element | null | (() => Element | null);
   append?: 'last' | 'first' | 'before' | 'after' | 'replace';
   render: (container: HTMLElement) => ComponentChild;
+  /** Take the theme from what this element sits on, instead of the host's parent. */
+  themeFrom?: Element;
 }
 
 /**
@@ -27,7 +29,7 @@ export async function mountPanel(
     anchor: options.anchor,
     append: options.append ?? 'last',
     onMount: (container, _shadow, host) => {
-      const unwatchTheme = watchHostTheme(host as HTMLElement);
+      const unwatchTheme = watchHostTheme(host as HTMLElement, options.themeFrom);
       const root = document.createElement('div');
       root.className = 'sqb-root';
       container.append(root);

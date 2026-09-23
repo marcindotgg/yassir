@@ -4,18 +4,21 @@
  * The host element is laid out from here rather than a `style` attribute:
  * Scryfall's CSP (style-src without 'unsafe-inline') throws those away. WXT
  * resets the host with `:host { all: initial !important }`, so these have to be
- * !important to land at all. z-index lifts us over .homepage-collage, which is
- * absolutely positioned and comes after the form in the DOM.
+ * !important to land at all. The host is a zero-size fixed box at the end of
+ * <body>; the modal inside positions itself against the viewport, above
+ * everything Scryfall paints.
  */
 :host {
   display: block !important;
-  position: relative !important;
-  z-index: 1 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  z-index: 2147483000 !important;
 }
 
 .sqb-root {
-  max-width: 760px;
-  margin: 0 auto;
   font-family: var(--sqb-font);
   font-size: 13px;
   line-height: 1.4;
@@ -166,12 +169,90 @@
   font-size: 12px;
 }
 
-/* --- query builder ------------------------------------------------------- */
+/* --- search modal -------------------------------------------------------- */
 
-.sqb-qb {
-  margin-top: 12px;
+.sqb-modal {
+  position: fixed;
+  inset: 0;
   text-align: left;
 }
+.sqb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 20, 0.55);
+  animation: sqb-fade 0.16s ease-out;
+}
+/* top/left/width come from the component: the head lines the copied input up
+   with Scryfall's own, so only the panel around it appears to open. */
+.sqb-sheet {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-radius);
+  box-shadow: var(--sqb-shadow);
+  transition: top 0.2s ease;
+}
+.sqb-sheet-head {
+  position: relative;
+  flex: none;
+  padding-top: 11px; /* PAD minus the sheet border, so the input lands on the original */
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sqb-border);
+}
+/* Everything visual is copied from Scryfall's box at open time. */
+.sqb-mirror {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+}
+.sqb-adornment {
+  position: absolute;
+  pointer-events: none;
+}
+.sqb-adornment > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.sqb-mirror::placeholder {
+  color: currentColor;
+  opacity: 0.5;
+}
+.sqb-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: sqb-drop 0.18s ease-out;
+}
+@keyframes sqb-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sqb-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sqb-sheet,
+  .sqb-backdrop,
+  .sqb-sheet-body {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* --- query builder ------------------------------------------------------- */
+
 .sqb-qb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

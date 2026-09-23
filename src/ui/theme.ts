@@ -51,22 +51,23 @@ export function backgroundBehind(start: Element | null): Rgb | null {
   return null;
 }
 
-export function hostTheme(host: Element | null): 'dark' | 'light' | null {
-  const rgb = backgroundBehind(host?.parentElement ?? document.body ?? null);
+/** `from` overrides where to look, for a host that is not placed over what it covers. */
+export function hostTheme(host: Element | null, from?: Element): 'dark' | 'light' | null {
+  const rgb = backgroundBehind(from ?? host?.parentElement ?? document.body ?? null);
   if (!rgb) return null;
   return luminance(rgb) < 0.4 ? 'dark' : 'light';
 }
 
-export function applyHostTheme(host: HTMLElement): void {
-  const theme = hostTheme(host);
+export function applyHostTheme(host: HTMLElement, from?: Element): void {
+  const theme = hostTheme(host, from);
   if (theme) host.dataset.theme = theme;
   else delete host.dataset.theme;
 }
 
 /** Re-reads the background when Scryfall restyles the page under us. */
-export function watchHostTheme(host: HTMLElement): () => void {
-  applyHostTheme(host);
-  const observer = new MutationObserver(() => applyHostTheme(host));
+export function watchHostTheme(host: HTMLElement, from?: Element): () => void {
+  applyHostTheme(host, from);
+  const observer = new MutationObserver(() => applyHostTheme(host, from));
   const options: MutationObserverInit = { attributes: true, attributeFilter: ['class', 'style'] };
   observer.observe(document.documentElement, options);
   if (document.body) observer.observe(document.body, options);

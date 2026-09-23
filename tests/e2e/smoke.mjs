@@ -52,7 +52,7 @@ const setsInput = () => inPage(() => {
 
 await step('mounts on the homepage', async () => {
   await page.goto('https://scryfall.com/', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('scryfall-query-builder', { timeout: 20000 });
+  await page.waitForSelector('scryfall-query-builder', { state: 'attached', timeout: 20000 });
   return 'host element present';
 });
 
@@ -62,25 +62,36 @@ await step('panel matches Scryfall’s dark hero', async () => {
   return 'data-theme=dark';
 });
 
-await step('the host clears the homepage collage', async () => {
-  const css = await inPage(() => {
-    const cs = getComputedStyle(document.querySelector('scryfall-query-builder'));
-    return { position: cs.position, zIndex: cs.zIndex };
+await step('focusing the search box opens the modal over it', async () => {
+  await page.fill('input#q', 't:instant');
+  await page.evaluate(() => document.querySelector('input#q').blur());
+  await page.click('input#q');
+  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  const geo = await inPage(() => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    const mirror = root.querySelector('.sqb-mirror');
+    const a = document.querySelector('input#q').getBoundingClientRect();
+    const b = mirror.getBoundingClientRect();
+    return {
+      dx: Math.abs(a.left - b.left) + Math.abs(a.right - b.right),
+      dy: Math.abs(a.top - b.top) + Math.abs(a.bottom - b.bottom),
+      value: mirror.value,
+      focused: root.activeElement === mirror,
+      font: getComputedStyle(mirror).fontSize === getComputedStyle(document.querySelector('input#q')).fontSize,
+    };
   });
-  // Scryfall's CSP drops style attributes and WXT resets the host, so this is
-  // the regression that matters: without it .homepage-collage paints over us.
-  if (css.position !== 'relative' || css.zIndex !== '1') throw new Error(JSON.stringify(css));
-  return `${css.position} / z-index ${css.zIndex}`;
+  await page.screenshot({ path: path.join(OUT, 'modal.png') });
+  // The illusion only holds if the copy sits exactly on the original.
+  if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror is off by ${geo.dx}px / ${geo.dy}px`);
+  if (geo.value !== 't:instant' || !geo.focused || !geo.font) throw new Error(JSON.stringify(geo));
+  return 'mirror on top of input#q, same text, focused';
 });
 
-await step('opens the builder', async () => {
-  await inPage(() => {
-    const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    [...root.querySelectorAll('button')].find((b) => /query builder/i.test(b.textContent)).click();
-  });
-  await page.waitForFunction(() => /Insert into search box/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.textContent ?? ''), null, { timeout: 5000 });
-  if (!(await setsInput())) throw new Error('no set combobox');
-  return 'panel open';
+await step('typing in the modal writes through to the real box', async () => {
+  await page.keyboard.type(' s:mh3');
+  const value = await page.inputValue('input#q');
+  if (value !== 't:instant s:mh3') throw new Error(`input#q holds ${value}`);
+  return value;
 });
 
 await step('the set list loads from api.scryfall.com', async () => {
@@ -128,6 +139,12 @@ await step('a second set becomes an or-group', async () => {
   return inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-qb-preview').textContent);
 });
 
+await step('the explainer names the set', async () => {
+  const text = await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-explain').textContent.replace(/\s+/g, ' ').trim());
+  if (!/Modern Horizons 3/.test(text)) throw new Error(`set name not resolved: ${text}`);
+  return text;
+});
+
 await step('a preset lands in the real search box', async () => {
   await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
@@ -137,28 +154,37 @@ await step('a preset lands in the real search box', async () => {
   await page.waitForFunction(() => /c=r/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-qb-preview')?.textContent ?? ''), null, { timeout: 5000 });
   await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    [...root.querySelectorAll('button')].find((b) => /Insert into search box/.test(b.textContent)).click();
+    [...root.querySelectorAll('button')].find((b) => /Replace search/.test(b.textContent)).click();
   });
   await page.screenshot({ path: path.join(OUT, 'builder.png') });
-  const value = await page.inputValue('input#q');
-  if (!value.includes('c=r')) throw new Error(`unexpected query: ${value}`);
+  const [value, mirror] = await Promise.all([
+    page.inputValue('input#q'),
+    inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value),
+  ]);
+  if (!value.includes('c=r') || value !== mirror) throw new Error(`box: ${value} / mirror: ${mirror}`);
   return value;
 });
 
-await step('the explainer names the set', async () => {
-  await inPage(() => {
-    const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(document.querySelector('input#q'), 's:mh3 t:instant');
-    [...root.querySelectorAll('button')].find((b) => /Explain my query/.test(b.textContent)).click();
-  });
-  await page.waitForFunction(() => /What this query means/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.textContent ?? ''), null, { timeout: 5000 });
-  const text = await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-explain').textContent.replace(/\s+/g, ' ').trim());
-  if (!/Modern Horizons 3/.test(text)) throw new Error(`set name not resolved: ${text}`);
-  return text;
+await step('Escape closes it and gives focus back to the real box', async () => {
+  await page.keyboard.press('Escape');
+  const state = await inPage(() => ({
+    open: !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    focused: document.activeElement === document.querySelector('input#q'),
+  }));
+  if (state.open || !state.focused) throw new Error(JSON.stringify(state));
+  return 'closed, input#q focused';
+});
+
+await step('Enter in the modal runs the search', async () => {
+  await page.click('input#q');
+  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  await Promise.all([page.waitForURL(/\/search\?/, { timeout: 15000 }), page.keyboard.press('Enter')]);
+  const q = new URL(page.url()).searchParams.get('q');
+  if (!q?.includes('c=r')) throw new Error(`searched for ${q}`);
+  return q;
 });
 
 await step('stays off every other page', async () => {
-  await page.goto('https://scryfall.com/search?q=bolt', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   const n = await inPage(() => document.querySelectorAll('scryfall-query-builder').length);
   if (n !== 0) throw new Error(`mounted ${n} times on /search`);

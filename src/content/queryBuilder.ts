@@ -1,6 +1,6 @@
 import type { ContentScriptContext } from '#imports';
 import { h } from 'preact';
-import { QueryBuilder } from '../components/QueryBuilder';
+import { SearchModal } from '../components/SearchModal';
 import { mountPanel } from '../ui/mount';
 import { isHomePage, SCRYFALL } from './selectors';
 
@@ -28,8 +28,9 @@ function waitForElement<T extends Element>(ctx: ContentScriptContext, selector: 
 }
 
 /**
- * Mounts the query builder under Scryfall's homepage search form. Returns a
- * cleanup so a location change can tear it down and try again.
+ * Hooks the search modal onto Scryfall's homepage search box. The host goes at
+ * the end of <body> so no ancestor of the form can clip or transform the fixed
+ * overlay. Returns a cleanup so a location change can tear it down and try again.
  */
 export async function mountQueryBuilder(ctx: ContentScriptContext): Promise<() => void> {
   if (!isHomePage(new URL(location.href))) return () => {};
@@ -40,17 +41,15 @@ export async function mountQueryBuilder(ctx: ContentScriptContext): Promise<() =
 
   const ui = await mountPanel(ctx, {
     name: 'scryfall-query-builder',
-    anchor: form,
-    append: 'after',
+    anchor: 'body',
+    append: 'last',
+    // The sheet covers the hero, so it takes its theme from there, not from <body>.
+    themeFrom: form,
     render: () =>
-      h(QueryBuilder, {
-        getSearchValue: () => input.value,
-        setSearchValue: (query, submit) => {
-          input.value = query;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.focus();
-          if (submit) form.requestSubmit ? form.requestSubmit() : form.submit();
-        },
+      h(SearchModal, {
+        input,
+        adornments: () => [...form.querySelectorAll(SCRYFALL.homeLogo)],
+        submit: () => (form.requestSubmit ? form.requestSubmit() : form.submit()),
       }),
   });
 

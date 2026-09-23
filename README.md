@@ -7,23 +7,28 @@ autocomplete backed by the Scryfall API.
 
 It was split out of the [MTGenie extension](../extension), which keeps
 everything collection-related (ownership badges, price charts, the collection
-panel). This one touches nothing but the menu under the homepage search box and
-talks to no backend other than Scryfall's public API.
+panel). This one touches nothing but the homepage search box and talks to no
+backend other than Scryfall's public API.
 
 ## What it does
 
-- **Query builder** — a panel under the homepage search box: name, rules text,
+- **Search modal** — focusing the homepage search box opens a sheet with a copy
+  of the box on top, laid exactly over the original (same styles, text, caret
+  and logo), so it reads as the same input growing a panel. Both boxes stay in
+  sync; Enter searches, Escape hands focus back to Scryfall's box, a click
+  outside closes it. The explainer and the builder live in the sheet.
+- **Query builder** — name, rules text,
   type, colors (with `c=` / `c<=` / `c>=` / `id<=`), mana value, rarity, sets,
   format, max price, power/toughness, artist, year, `is:` flags and sorting,
-  with a live preview of the query it produces. *Insert into search box* fills
-  Scryfall's own input; *Search* submits it.
+  with a live preview of the query it produces. *Replace search* or *Add to
+  search* writes it into the box; *Search* runs it.
 - **Set autocomplete** — type a set name or code and pick from a ranked list
   (set symbol, name, code, year, card count). Pick several and they become
   `(s:mh3 or s:ltr)`. The list comes from `https://api.scryfall.com/sets`,
   fetched by the background worker and cached in `storage.local` for 24 hours,
   so normal use costs one request a day.
-- **Explain my query** — tokenises whatever is in the search box and explains it
-  operator by operator; unknown tokens are flagged rather than dropped. Set
+- **Query explainer** — explains whatever is in the box as you type, operator
+  by operator; unknown tokens are flagged rather than dropped. Set
   codes are resolved to names (`s:mh3` → "set is Modern Horizons 3 (mh3)").
 
 ## Layout
@@ -31,8 +36,8 @@ talks to no backend other than Scryfall's public API.
 ```
 entrypoints/        background.ts (set list + cache), scryfall.content.tsx
 src/background/     the Scryfall /sets fetch, its cache and TTL
-src/content/        homepage detection, selectors, mounting the panel
-src/components/     Preact: QueryBuilder, SetAutocomplete, useSets
+src/content/        homepage detection, selectors, mounting the modal
+src/components/     Preact: SearchModal, QueryBuilder, SetAutocomplete, useSets
 src/lib/            pure helpers: query build/explain, set parsing + search
 src/ui/             shadow-root mounting, theme detection, styles + tokens
 tests/unit/         vitest + happy-dom
@@ -65,18 +70,22 @@ Screenshots and `results.json` land in `tests/e2e/.state/`.
 
 ## Notes on the host page
 
-Two things about scryfall.com shape the implementation, and both are easy to
+A few things about scryfall.com shape the implementation, and all are easy to
 trip over again:
 
 - **Its CSP has `style-src` without `'unsafe-inline'`**, so `style` attributes
   on elements in the page are silently dropped. The shadow host is therefore
   laid out from a `:host` rule in `src/ui/styles.css`, not from a style
   attribute — and those declarations need `!important`, because WXT resets the
-  host with `:host { all: initial !important }`.
+  host with `:host { all: initial !important }`. Positions set from script
+  (`el.style.top = …`, Preact's `style={{…}}`) are CSSOM writes and do work.
+- **It binds single-letter keyboard shortcuts on the document.** Keys typed in
+  our shadow root reach it with the host as their target, so it takes them for
+  shortcuts (one jumps to /advanced). The modal stops key events from leaving it.
 - **Scryfall exposes no theme class.** Its homepage hero is dark for everyone,
   painted by a gradient on `div.homepage`, while `div.main` behind it is light.
-  So `src/ui/theme.ts` reads the background actually painted behind the mount
-  point — colour or gradient — and picks dark or light by luminance.
+  So `src/ui/theme.ts` reads the background actually painted behind the search
+  form — colour or gradient — and picks dark or light by luminance.
 
 The Scryfall API is called only from the background worker. Scryfall rejects
 requests that send a generic User-Agent; `fetch()` cannot set that header, but
