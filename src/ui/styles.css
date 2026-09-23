@@ -192,7 +192,30 @@
   border: 1px solid var(--sqb-border);
   border-radius: var(--sqb-radius);
   box-shadow: var(--sqb-shadow);
-  transition: top 0.2s ease;
+  animation: sqb-open 0.32s both;
+}
+/*
+ * Opening: the sheet starts shifted back onto Scryfall's box and clipped to just
+ * the input, so the first frame looks like nothing happened. Then the input
+ * glides up while the clip grows to the header, and the rest of the panel
+ * unrolls below it. The vars come from the component.
+ */
+@keyframes sqb-open {
+  0% {
+    transform: translateY(var(--sqb-shift));
+    clip-path: inset(var(--sqb-in-top) var(--sqb-in-right) calc(100% - var(--sqb-in-bottom)) var(--sqb-in-left) round var(--sqb-in-radius));
+    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  55% {
+    transform: translateY(0);
+    clip-path: inset(0 0 calc(100% - var(--sqb-head)) 0 round var(--sqb-radius));
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  100% {
+    transform: none;
+    /* Wider than the box so the shadow isn't cut off once it's open. */
+    clip-path: inset(-40px round var(--sqb-radius));
+  }
 }
 .sqb-sheet-head {
   position: relative;
@@ -201,10 +224,25 @@
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sqb-border);
 }
+/* Holds the copied box and its logo; ends up spanning the sheet. */
+.sqb-box {
+  position: relative;
+  margin: 0 11px;
+  width: calc(100% - 22px);
+  animation: sqb-widen 0.176s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+/* Starts at Scryfall's width and place; runs alongside the first half of sqb-open. */
+@keyframes sqb-widen {
+  from {
+    margin-left: var(--sqb-box-left);
+    width: var(--sqb-box-width);
+  }
+}
 /* Everything visual is copied from Scryfall's box at open time. */
 .sqb-mirror {
   display: block;
   box-sizing: border-box;
+  width: 100%;
   margin: 0;
 }
 .sqb-adornment {
@@ -229,7 +267,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  animation: sqb-drop 0.18s ease-out;
+  animation: sqb-drop 0.16s 0.2s ease-out both;
 }
 @keyframes sqb-fade {
   from {
@@ -239,15 +277,15 @@
 @keyframes sqb-drop {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-4px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .sqb-sheet,
   .sqb-backdrop,
+  .sqb-box,
   .sqb-sheet-body {
     animation: none;
-    transition: none;
   }
 }
 

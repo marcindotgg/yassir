@@ -70,9 +70,19 @@ await step('focusing the search box opens the modal over it', async () => {
   const geo = await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
     const mirror = root.querySelector('.sqb-mirror');
+    // Measure the first frame of the open animation, then let it run out.
+    const anims = root.querySelector('.sqb-modal').getAnimations({ subtree: true });
+    anims.forEach((a) => {
+      a.pause();
+      a.currentTime = 0;
+    });
     const a = document.querySelector('input#q').getBoundingClientRect();
     const b = mirror.getBoundingClientRect();
+    anims.forEach((a) => a.finish());
+    const opened = mirror.getBoundingClientRect();
     return {
+      widened: opened.width > a.width + 100,
+      hidden: getComputedStyle(document.querySelector('input#q')).visibility === 'hidden',
       dx: Math.abs(a.left - b.left) + Math.abs(a.right - b.right),
       dy: Math.abs(a.top - b.top) + Math.abs(a.bottom - b.bottom),
       value: mirror.value,
@@ -81,10 +91,10 @@ await step('focusing the search box opens the modal over it', async () => {
     };
   });
   await page.screenshot({ path: path.join(OUT, 'modal.png') });
-  // The illusion only holds if the copy sits exactly on the original.
-  if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror is off by ${geo.dx}px / ${geo.dy}px`);
-  if (geo.value !== 't:instant' || !geo.focused || !geo.font) throw new Error(JSON.stringify(geo));
-  return 'mirror on top of input#q, same text, focused';
+  // The illusion only holds if the copy starts exactly on the original.
+  if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror starts off by ${geo.dx}px / ${geo.dy}px`);
+  if (geo.value !== 't:instant' || !geo.focused || !geo.font || !geo.hidden || !geo.widened) throw new Error(JSON.stringify(geo));
+  return 'mirror starts on top of input#q, same text, focused; original hidden; widens open';
 });
 
 await step('typing in the modal writes through to the real box', async () => {
@@ -170,9 +180,10 @@ await step('Escape closes it and gives focus back to the real box', async () => 
   const state = await inPage(() => ({
     open: !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
     focused: document.activeElement === document.querySelector('input#q'),
+    visible: getComputedStyle(document.querySelector('input#q')).visibility === 'visible',
   }));
-  if (state.open || !state.focused) throw new Error(JSON.stringify(state));
-  return 'closed, input#q focused';
+  if (state.open || !state.focused || !state.visible) throw new Error(JSON.stringify(state));
+  return 'closed, input#q visible and focused';
 });
 
 await step('Enter in the modal runs the search', async () => {

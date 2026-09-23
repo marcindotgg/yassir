@@ -19,9 +19,11 @@ const PAD = 12;
 const BORDER = 1;
 /** Gap kept between the sheet and the viewport edges, px. */
 const EDGE = 16;
-const SHEET_WIDTH = 760;
-/** Below this much room under the input, the sheet moves up to the top of the viewport. */
-const MIN_ROOM = 360;
+const SHEET_WIDTH = 1000;
+/** Where the input glides to on open, as a share of the viewport height. */
+const LIFT_TO = 0.12;
+/** .sqb-sheet-head's bottom padding + border, below the input. */
+const HEAD_BELOW = 13;
 
 /**
  * Everything that makes the copy look like Scryfall's box. Read with transitions
@@ -52,9 +54,9 @@ function mirrorStyle(input: HTMLInputElement): MirrorStyle {
 }
 
 interface Layout {
-  /** Where the sheet sits while the input is still in its own place… */
+  /** Where the sheet sits while its input covers Scryfall's… */
   top: number;
-  /** …and where it ends up: the same, unless there is no room below. */
+  /** …and where it glides to, making room for the panel below. */
   finalTop: number;
   left: number;
   width: number;
@@ -73,7 +75,7 @@ function measure(input: HTMLInputElement): Layout {
   const top = r.top - PAD;
   return {
     top,
-    finalTop: vh - top - EDGE < MIN_ROOM ? EDGE : top,
+    finalTop: Math.max(EDGE, Math.min(top, Math.round(vh * LIFT_TO))),
     left,
     width,
     inputLeft: r.left - left,
@@ -90,11 +92,12 @@ interface Adornment {
   height: number;
 }
 
-/** Snapshots decorations over the box, positioned relative to the sheet's padding box. */
-function copyAdornments(elements: Element[], layout: Layout): Adornment[] {
+/** Snapshots decorations over the box, positioned relative to the box itself, so they ride along as it widens. */
+function copyAdornments(elements: Element[], input: HTMLInputElement): Adornment[] {
+  const box = input.getBoundingClientRect();
   return elements.map((el) => {
     const r = el.getBoundingClientRect();
-    return { html: el.outerHTML, left: r.left - layout.left - BORDER, top: r.top - layout.top - BORDER, width: r.width, height: r.height };
+    return { html: el.outerHTML, left: r.left - box.left, top: r.top - box.top, width: r.width, height: r.height };
   });
 }
 
@@ -112,6 +115,17 @@ interface Session {
  * it would look like a shortcut: keep every key typed in the sheet to ourselves.
  */
 const stopKey = (e: KeyboardEvent) => e.stopPropagation();
+
+/**
+ * Hides Scryfall's box (and its logo) while the copy is up: once the copy glides
+ * away, the original would otherwise show through the backdrop as a ghost.
+ */
+function hideAll(elements: Element[]): () => void {
+  const styled = elements.filter((el): el is HTMLElement | SVGElement => 'style' in el);
+  const prev = styled.map((el) => el.style.visibility);
+  for (const el of styled) el.style.visibility = 'hidden';
+  return () => styled.forEach((el, i) => (el.style.visibility = prev[i] ?? ''));
+}
 
 /** Locks page scroll so the box under the sheet stays where the sheet thinks it is. */
 function lockScroll(): () => void {
@@ -134,13 +148,17 @@ function lockScroll(): () => void {
  */
 export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
-  const [top, setTop] = useState(0);
   const [value, setValue] = useState('');
   const [builder, setBuilder] = useState<QueryState>(EMPTY_QUERY);
   const sets = useSets();
   const mirrorRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(false);
   const refocusing = useRef(false);
+  const unhide = useRef<(() => void) | null>(null);
+  const reveal = () => {
+    unhide.current?.();
+    unhide.current = null;
+  };
 
   const setNames = useMemo(() => setNameIndex(sets.sets), [sets.sets]);
   const explanation = useMemo(() => (value.trim() ? explainQuery(value, setNames) : []), [value, setNames]);
@@ -157,6 +175,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     const selection = [mirror?.selectionStart ?? value.length, mirror?.selectionEnd ?? value.length] as const;
     openRef.current = false;
     setSession(null);
+    reveal(); // before focusing: a hidden input can't take focus
     input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     if (!refocus) return;
@@ -175,17 +194,18 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       if (refocusing.current) return;
       const len = input.value.length;
       const layout = measure(input);
+      const covered = adornments?.() ?? [];
       const next: Session = {
         layout,
-        adornments: copyAdornments(adornments?.() ?? [], layout),
+        adornments: copyAdornments(covered, input),
         style: mirrorStyle(input),
         placeholder: input.placeholder,
         selection: [input.selectionStart ?? len, input.selectionEnd ?? len],
       };
       openRef.current = true;
       input.blur();
+      unhide.current = hideAll([input, ...covered]);
       setValue(input.value);
-      setTop(layout.top);
       setSession(next);
     };
     // A click on the box it already has focus (e.g. after Escape) opens it too.
@@ -201,6 +221,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       if (e.persisted && openRef.current) {
         openRef.current = false;
         setSession(null);
+        reveal();
       }
     };
     input.addEventListener('focus', open);
@@ -212,6 +233,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       input.removeEventListener('click', onClick);
       input.removeEventListener('input', onInput);
       window.removeEventListener('pageshow', onPageShow);
+      reveal();
     };
   }, [input, adornments]);
 
@@ -222,16 +244,12 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     mirror?.focus();
     mirror?.setSelectionRange(session.selection[0], session.selection[1]);
     const unlock = lockScroll();
-    let frame = 0;
-    if (session.layout.finalTop !== session.layout.top) frame = requestAnimationFrame(() => setTop(session.layout.finalTop));
     const onResize = () => {
       const layout = measure(input);
       setSession((s) => (s ? { ...s, layout } : s));
-      setTop(layout.finalTop);
     };
     window.addEventListener('resize', onResize);
     return () => {
-      cancelAnimationFrame(frame);
       window.removeEventListener('resize', onResize);
       unlock();
     };
@@ -239,6 +257,20 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
 
   if (!session) return null;
   const { layout } = session;
+  // The open animation starts from exactly Scryfall's box: shifted back to where it
+  // sits and clipped down to it (see @keyframes sqb-open).
+  const motion = {
+    '--sqb-shift': `${layout.top - layout.finalTop}px`,
+    '--sqb-in-top': `${PAD}px`,
+    '--sqb-in-left': `${layout.inputLeft}px`,
+    '--sqb-in-right': `${layout.width - layout.inputLeft - layout.inputWidth}px`,
+    '--sqb-in-bottom': `${PAD + layout.inputHeight}px`,
+    '--sqb-in-radius': session.style.borderTopLeftRadius ?? '0px',
+    '--sqb-head': `${PAD + layout.inputHeight + HEAD_BELOW}px`,
+    // The box then widens from Scryfall's size to the full sheet.
+    '--sqb-box-left': `${layout.inputLeft - BORDER}px`,
+    '--sqb-box-width': `${layout.inputWidth}px`,
+  };
 
   const apply = (query: string, mode: ApplyMode) => {
     const next = mode === 'append' && value.trim() ? `${value.trimEnd()} ${query}` : query;
@@ -275,38 +307,46 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Search"
-        style={{ top: `${top}px`, left: `${layout.left}px`, width: `${layout.width}px`, maxHeight: `calc(100vh - ${top + EDGE}px)` }}
+        style={{
+          ...motion,
+          top: `${layout.finalTop}px`,
+          left: `${layout.left}px`,
+          width: `${layout.width}px`,
+          maxHeight: `calc(100vh - ${layout.finalTop + EDGE}px)`,
+        }}
         onKeyDown={onSheetKeyDown}
         onKeyPress={stopKey}
         onKeyUp={stopKey}
       >
         <div class="sqb-sheet-head">
-          <input
-            ref={mirrorRef}
-            class="sqb-mirror"
-            type="text"
-            name="q"
-            aria-label="Search for cards"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck={false}
-            maxLength={input.maxLength > 0 ? input.maxLength : 1024}
-            placeholder={session.placeholder}
-            value={value}
-            onInput={(e) => sync((e.target as HTMLInputElement).value)}
-            onKeyDown={onMirrorKeyDown}
-            style={{ ...session.style, marginLeft: `${layout.inputLeft - BORDER}px`, width: `${layout.inputWidth}px`, height: `${layout.inputHeight}px` }}
-          />
-          {session.adornments.map((a, i) => (
-            <span
-              key={i}
-              class="sqb-adornment"
-              aria-hidden="true"
-              style={{ left: `${a.left}px`, top: `${a.top}px`, width: `${a.width}px`, height: `${a.height}px` }}
-              // Scryfall's own markup (an inline SVG), copied so the logo stays put over the box.
-              dangerouslySetInnerHTML={{ __html: a.html }}
+          <div class="sqb-box">
+            <input
+              ref={mirrorRef}
+              class="sqb-mirror"
+              type="text"
+              name="q"
+              aria-label="Search for cards"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck={false}
+              maxLength={input.maxLength > 0 ? input.maxLength : 1024}
+              placeholder={session.placeholder}
+              value={value}
+              onInput={(e) => sync((e.target as HTMLInputElement).value)}
+              onKeyDown={onMirrorKeyDown}
+              style={{ ...session.style, height: `${layout.inputHeight}px` }}
             />
-          ))}
+            {session.adornments.map((a, i) => (
+              <span
+                key={i}
+                class="sqb-adornment"
+                aria-hidden="true"
+                style={{ left: `${a.left}px`, top: `${a.top}px`, width: `${a.width}px`, height: `${a.height}px` }}
+                // Scryfall's own markup (an inline SVG), copied so the logo stays put over the box.
+                dangerouslySetInnerHTML={{ __html: a.html }}
+              />
+            ))}
+          </div>
         </div>
 
         <div class="sqb-sheet-body">
