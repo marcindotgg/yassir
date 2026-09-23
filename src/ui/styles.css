@@ -171,20 +171,48 @@
 
 /* --- search modal -------------------------------------------------------- */
 
+/*
+ * Motion. Opening: the sheet starts shifted back onto Scryfall's box and clipped
+ * to just that box, so the first frame looks like nothing happened. The box
+ * springs to its resting place while widening to the sheet, the page behind
+ * blurs away, the sheet unfolds below the box, and its contents rise in one
+ * after another. Closing plays the same path back in 180ms and lands on the
+ * original box again. The --sqb-* position vars come from the component.
+ */
 .sqb-modal {
+  /* A critically-damped-ish spring (ζ≈0.8): overshoots by ~1.5% and settles. */
+  --sqb-spring: linear(0, 0.026, 0.091, 0.18, 0.28, 0.383, 0.483, 0.576, 0.66, 0.733, 0.796, 0.848, 0.891, 0.926, 0.953, 0.973, 0.988, 0.999, 1.007, 1.011, 1.014, 1.015, 1.015, 1.014, 1.013, 1.012, 1.01, 1.009, 1.007, 1.006, 1.005, 1.004, 1);
+  --sqb-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --sqb-in: cubic-bezier(0.5, 0, 0.75, 0);
+
   position: fixed;
   inset: 0;
   text-align: left;
 }
+
 .sqb-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(8, 10, 20, 0.55);
-  animation: sqb-fade 0.16s ease-out;
+  background: rgba(8, 10, 20, 0.45);
+  backdrop-filter: blur(6px) saturate(0.9);
+  animation: sqb-backdrop-in 0.3s var(--sqb-out) both;
 }
-/* top/left/width come from the component: the head lines the copied input up
-   with Scryfall's own, so only the panel around it appears to open. */
+@keyframes sqb-backdrop-in {
+  from {
+    background: rgba(8, 10, 20, 0);
+    backdrop-filter: blur(0) saturate(1);
+  }
+}
+
+/* top/left/width come from the component: the head lines the copied box up with
+   Scryfall's own. */
 .sqb-sheet {
+  /* Here, not on .sqb-modal: they read the --sqb-in-* vars the component sets on this element. */
+  --sqb-clip-box: inset(var(--sqb-in-top) var(--sqb-in-right) calc(100% - var(--sqb-in-bottom)) var(--sqb-in-left) round var(--sqb-in-radius));
+  --sqb-clip-head: inset(0 0 calc(100% - var(--sqb-head)) 0 round var(--sqb-radius));
+  /* Wider than the sheet so its shadow isn't cut off once open. */
+  --sqb-clip-open: inset(-40px round var(--sqb-radius));
+
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -192,35 +220,34 @@
   border: 1px solid var(--sqb-border);
   border-radius: var(--sqb-radius);
   box-shadow: var(--sqb-shadow);
-  animation: sqb-open 0.32s both;
+  clip-path: var(--sqb-clip-open);
+  animation:
+    sqb-travel 0.38s var(--sqb-spring) both,
+    sqb-unfold 0.34s both;
 }
-/*
- * Opening: the sheet starts shifted back onto Scryfall's box and clipped to just
- * the input, so the first frame looks like nothing happened. Then the input
- * glides up while the clip grows to the header, and the rest of the panel
- * unrolls below it. The vars come from the component.
- */
-@keyframes sqb-open {
-  0% {
+@keyframes sqb-travel {
+  from {
     transform: translateY(var(--sqb-shift));
-    clip-path: inset(var(--sqb-in-top) var(--sqb-in-right) calc(100% - var(--sqb-in-bottom)) var(--sqb-in-left) round var(--sqb-in-radius));
-    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
   }
-  55% {
-    transform: translateY(0);
-    clip-path: inset(0 0 calc(100% - var(--sqb-head)) 0 round var(--sqb-radius));
-    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes sqb-unfold {
+  0% {
+    clip-path: var(--sqb-clip-box);
+    animation-timing-function: var(--sqb-out);
+  }
+  45% {
+    clip-path: var(--sqb-clip-head);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
   }
   100% {
-    transform: none;
-    /* Wider than the box so the shadow isn't cut off once it's open. */
-    clip-path: inset(-40px round var(--sqb-radius));
+    clip-path: var(--sqb-clip-open);
   }
 }
+
 .sqb-sheet-head {
   position: relative;
   flex: none;
-  padding-top: 11px; /* PAD minus the sheet border, so the input lands on the original */
+  padding-top: 11px; /* PAD minus the sheet border, so the box lands on the original */
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sqb-border);
 }
@@ -229,9 +256,8 @@
   position: relative;
   margin: 0 11px;
   width: calc(100% - 22px);
-  animation: sqb-widen 0.176s cubic-bezier(0.3, 0, 0.2, 1) both;
+  animation: sqb-widen 0.38s var(--sqb-spring) both;
 }
-/* Starts at Scryfall's width and place; runs alongside the first half of sqb-open. */
 @keyframes sqb-widen {
   from {
     margin-left: var(--sqb-box-left);
@@ -245,6 +271,10 @@
   width: 100%;
   margin: 0;
 }
+.sqb-mirror::placeholder {
+  color: currentColor;
+  opacity: 0.5;
+}
 .sqb-adornment {
   position: absolute;
   pointer-events: none;
@@ -254,10 +284,7 @@
   width: 100%;
   height: 100%;
 }
-.sqb-mirror::placeholder {
-  color: currentColor;
-  opacity: 0.5;
-}
+
 .sqb-sheet-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -267,25 +294,95 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  animation: sqb-drop 0.16s 0.2s ease-out both;
 }
-@keyframes sqb-fade {
+
+/* The contents rise in once the unfold has passed the head, 25ms apart. */
+.sqb-rise,
+.sqb-qb > * {
+  animation: sqb-rise 0.26s var(--sqb-out) both;
+  animation-delay: calc(150ms + var(--sqb-i, 0) * 25ms);
+}
+.sqb-title.sqb-rise {
+  --sqb-i: 1;
+}
+.sqb-qb > :nth-child(1) {
+  --sqb-i: 2;
+}
+.sqb-qb > :nth-child(2) {
+  --sqb-i: 3;
+}
+.sqb-qb > :nth-child(3) {
+  --sqb-i: 4;
+}
+.sqb-qb > :nth-child(4) {
+  --sqb-i: 5;
+}
+.sqb-qb > :nth-child(n + 5) {
+  --sqb-i: 6;
+}
+@keyframes sqb-rise {
   from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* --- closing: the same path, backwards ----------------------------------- */
+
+.sqb-closing {
+  pointer-events: none;
+}
+.sqb-closing .sqb-backdrop {
+  animation: sqb-backdrop-out 0.18s var(--sqb-in) both;
+}
+@keyframes sqb-backdrop-out {
+  to {
+    background: rgba(8, 10, 20, 0);
+    backdrop-filter: blur(0) saturate(1);
+  }
+}
+.sqb-closing .sqb-sheet {
+  animation: sqb-close 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes sqb-close {
+  from {
+    transform: none;
+    clip-path: var(--sqb-clip-open);
+  }
+  45% {
+    clip-path: var(--sqb-clip-head);
+  }
+  to {
+    transform: translateY(var(--sqb-shift));
+    clip-path: var(--sqb-clip-box);
+  }
+}
+.sqb-closing .sqb-box {
+  animation: sqb-narrow 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes sqb-narrow {
+  from {
+    margin-left: 11px;
+    width: calc(100% - 22px);
+  }
+  to {
+    margin-left: var(--sqb-box-left);
+    width: var(--sqb-box-width);
+  }
+}
+.sqb-closing .sqb-sheet-body {
+  animation: sqb-fade-out 0.08s linear both;
+}
+@keyframes sqb-fade-out {
+  to {
     opacity: 0;
   }
 }
-@keyframes sqb-drop {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .sqb-sheet,
-  .sqb-backdrop,
-  .sqb-box,
-  .sqb-sheet-body {
-    animation: none;
+  .sqb-modal *,
+  .sqb-modal {
+    animation: none !important;
   }
 }
 

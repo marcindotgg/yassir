@@ -7,16 +7,21 @@ autocomplete backed by the Scryfall API.
 
 It was split out of the [MTGenie extension](../extension), which keeps
 everything collection-related (ownership badges, price charts, the collection
-panel). This one touches nothing but the homepage search box and talks to no
+panel). This one touches nothing but Scryfall's search box and talks to no
 backend other than Scryfall's public API.
 
 ## What it does
 
-- **Search modal** — focusing the homepage search box opens a sheet with a copy
-  of the box on top, laid exactly over the original (same styles, text, caret
-  and logo), so it reads as the same input growing a panel. Both boxes stay in
-  sync; Enter searches, Escape hands focus back to Scryfall's box, a click
-  outside closes it. The explainer and the builder live in the sheet.
+- **Search modal** — focusing Scryfall's search box (the big one on the
+  homepage, the header one on every other page) opens a sheet with a copy of
+  the box on top, starting exactly over the original (same styles, text, caret
+  and logo), so it reads as the same input growing a panel. The box springs to
+  its resting place — up from the homepage hero, down a little from the header
+  — widening as it goes, the page blurs behind it and the panel unfolds below,
+  its contents rising in one after another. Closing plays that back onto the
+  original box. Both boxes stay in sync; Enter searches, Escape hands focus back
+  to Scryfall's box, a click outside closes it. The explainer and the builder
+  live in the sheet.
 - **Query builder** — name, rules text,
   type, colors (with `c=` / `c<=` / `c>=` / `id<=`), mana value, rarity, sets,
   format, max price, power/toughness, artist, year, `is:` flags and sorting,
@@ -36,7 +41,7 @@ backend other than Scryfall's public API.
 ```
 entrypoints/        background.ts (set list + cache), scryfall.content.tsx
 src/background/     the Scryfall /sets fetch, its cache and TTL
-src/content/        homepage detection, selectors, mounting the modal
+src/content/        selectors for both search boxes, mounting the modal
 src/components/     Preact: SearchModal, QueryBuilder, SetAutocomplete, useSets
 src/lib/            pure helpers: query build/explain, set parsing + search
 src/ui/             shadow-root mounting, theme detection, styles + tokens

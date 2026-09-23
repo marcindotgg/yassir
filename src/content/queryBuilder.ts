@@ -2,7 +2,7 @@ import type { ContentScriptContext } from '#imports';
 import { h } from 'preact';
 import { SearchModal } from '../components/SearchModal';
 import { mountPanel } from '../ui/mount';
-import { isHomePage, SCRYFALL } from './selectors';
+import { searchBoxFor } from './selectors';
 
 /** Resolves once `selector` exists, or with null after `timeoutMs`. */
 function waitForElement<T extends Element>(ctx: ContentScriptContext, selector: string, timeoutMs = 10000): Promise<T | null> {
@@ -28,15 +28,15 @@ function waitForElement<T extends Element>(ctx: ContentScriptContext, selector: 
 }
 
 /**
- * Hooks the search modal onto Scryfall's homepage search box. The host goes at
+ * Hooks the search modal onto Scryfall's search box: the big one on the
+ * homepage, the header one everywhere else. The host goes at
  * the end of <body> so no ancestor of the form can clip or transform the fixed
  * overlay. Returns a cleanup so a location change can tear it down and try again.
  */
 export async function mountQueryBuilder(ctx: ContentScriptContext): Promise<() => void> {
-  if (!isHomePage(new URL(location.href))) return () => {};
-
-  const form = await waitForElement<HTMLFormElement>(ctx, SCRYFALL.homeForm);
-  const input = form?.querySelector<HTMLInputElement>(SCRYFALL.homeInput);
+  const box = searchBoxFor(new URL(location.href));
+  const form = await waitForElement<HTMLFormElement>(ctx, box.form);
+  const input = form?.querySelector<HTMLInputElement>(box.input);
   if (!form || !input || ctx.isInvalid) return () => {};
 
   const ui = await mountPanel(ctx, {
@@ -48,7 +48,7 @@ export async function mountQueryBuilder(ctx: ContentScriptContext): Promise<() =
     render: () =>
       h(SearchModal, {
         input,
-        adornments: () => [...form.querySelectorAll(SCRYFALL.homeLogo)],
+        adornments: () => (box.adornments ? [...form.querySelectorAll(box.adornments)] : []),
         submit: () => (form.requestSubmit ? form.requestSubmit() : form.submit()),
       }),
   });

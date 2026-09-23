@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { EMPTY_QUERY, explainQuery, type QueryState } from '../lib/scryfall-syntax';
 import { setNameIndex } from '../lib/sets';
+import { backgroundBehind } from '../ui/theme';
 import { QueryBuilder, type ApplyMode } from './QueryBuilder';
 import { useSets } from './useSets';
 
@@ -24,6 +25,12 @@ const SHEET_WIDTH = 1000;
 const LIFT_TO = 0.12;
 /** .sqb-sheet-head's bottom padding + border, below the input. */
 const HEAD_BELOW = 13;
+/** Matches the close animations in styles.css. */
+const CLOSE_MS = 180;
+/** A box scrolled out of view: the sheet drops in from just this far off its resting place instead. */
+const OFFSCREEN_TRAVEL = 48;
+
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * Everything that makes the copy look like Scryfall's box. Read with transitions
@@ -50,6 +57,12 @@ function mirrorStyle(input: HTMLInputElement): MirrorStyle {
   const style: MirrorStyle = {};
   for (const key of MIRRORED) style[key] = cs[key];
   input.style.transition = transition;
+  // The header box is see-through, painted by the bar behind it. The copy sits in
+  // the sheet, so it takes that colour along or it would change on the first frame.
+  if (/^rgba\(.*,\s*0\)$|^transparent$/.test(cs.backgroundColor)) {
+    const behind = backgroundBehind(input.parentElement);
+    if (behind) style.backgroundColor = `rgb(${behind.join(', ')})`;
+  }
   return style;
 }
 
@@ -71,11 +84,14 @@ function measure(input: HTMLInputElement): Layout {
   const vw = document.documentElement.clientWidth;
   const vh = window.innerHeight;
   const width = Math.max(Math.min(Math.max(SHEET_WIDTH, r.width + 2 * PAD), vw - 2 * EDGE), Math.min(r.width, vw));
-  const left = Math.max(0, Math.min(r.left + r.width / 2 - width / 2, vw - EDGE - width));
-  const top = r.top - PAD;
+  // Centred on the box, but kept EDGE clear of the viewport sides (the header box sits well left of centre).
+  const left = Math.max(Math.min(EDGE, (vw - width) / 2), Math.min(r.left + r.width / 2 - width / 2, vw - EDGE - width));
+  // Near the top (the header box) it drops down a little; lower (the homepage) it rises.
+  const finalTop = Math.max(EDGE, Math.min(r.top - PAD, Math.round(vh * LIFT_TO)));
+  const onScreen = r.bottom > 0 && r.top < vh;
   return {
-    top,
-    finalTop: Math.max(EDGE, Math.min(top, Math.round(vh * LIFT_TO))),
+    top: onScreen ? r.top - PAD : finalTop - OFFSCREEN_TRAVEL,
+    finalTop,
     left,
     width,
     inputLeft: r.left - left,
@@ -148,12 +164,14 @@ function lockScroll(): () => void {
  */
 export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
+  const [closing, setClosing] = useState(false);
   const [value, setValue] = useState('');
   const [builder, setBuilder] = useState<QueryState>(EMPTY_QUERY);
   const sets = useSets();
   const mirrorRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(false);
   const refocusing = useRef(false);
+  const closeTimer = useRef(0);
   const unhide = useRef<(() => void) | null>(null);
   const reveal = () => {
     unhide.current?.();
@@ -169,20 +187,35 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     input.value = next;
   };
 
-  const close = (refocus: boolean) => {
-    if (!openRef.current) return;
+  /** Tears the sheet down once the close animation has put the copy back on Scryfall's box. */
+  const finish = (refocus: boolean) => {
+    window.clearTimeout(closeTimer.current);
     const mirror = mirrorRef.current;
-    const selection = [mirror?.selectionStart ?? value.length, mirror?.selectionEnd ?? value.length] as const;
+    const end = input.value.length;
+    const selection = [mirror?.selectionStart ?? end, mirror?.selectionEnd ?? end] as const;
     openRef.current = false;
+    setClosing(false);
     setSession(null);
     reveal(); // before focusing: a hidden input can't take focus
-    input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     if (!refocus) return;
     refocusing.current = true;
     input.focus();
     input.setSelectionRange(selection[0], selection[1]);
     refocusing.current = false;
+  };
+
+  /**
+   * Plays the opening backwards, then hands over. The copy keeps focus meanwhile,
+   * so anything typed during those few frames still lands in the query.
+   */
+  const close = (refocus: boolean) => {
+    if (!openRef.current || closeTimer.current) return;
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = 0;
+      finish(refocus);
+    }, reducedMotion() ? 0 : CLOSE_MS);
   };
 
   useEffect(() => {
@@ -219,9 +252,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     // Coming back through the bfcache after a search: don't restore an open sheet.
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted && openRef.current) {
-        openRef.current = false;
-        setSession(null);
-        reveal();
+        closeTimer.current = 0;
+        finish(false);
       }
     };
     input.addEventListener('focus', open);
@@ -233,6 +265,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       input.removeEventListener('click', onClick);
       input.removeEventListener('input', onInput);
       window.removeEventListener('pageshow', onPageShow);
+      window.clearTimeout(closeTimer.current);
       reveal();
     };
   }, [input, adornments]);
@@ -257,8 +290,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
 
   if (!session) return null;
   const { layout } = session;
-  // The open animation starts from exactly Scryfall's box: shifted back to where it
-  // sits and clipped down to it (see @keyframes sqb-open).
+  // The animations start (and closing ends) exactly on Scryfall's box: shifted back
+  // to where it sits and clipped down to it. See the search modal part of styles.css.
   const motion = {
     '--sqb-shift': `${layout.top - layout.finalTop}px`,
     '--sqb-in-top': `${PAD}px`,
@@ -300,7 +333,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   };
 
   return (
-    <div class="sqb-modal">
+    <div class={`sqb-modal${closing ? ' sqb-closing' : ''}`}>
       <div class="sqb-backdrop" onClick={() => close(false)} />
       <div
         class="sqb-sheet"
@@ -350,7 +383,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
         </div>
 
         <div class="sqb-sheet-body">
-          <section class="sqb-stack">
+          <section class="sqb-stack sqb-rise">
             <div class="sqb-title">What this query means</div>
             {explanation.length === 0 ? (
               <div class="sqb-muted">Start typing — each part of the query is explained here as you go.</div>
@@ -367,7 +400,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
           </section>
 
           <section class="sqb-stack">
-            <div class="sqb-title">Query builder</div>
+            <div class="sqb-title sqb-rise">Query builder</div>
             <QueryBuilder state={builder} onChange={setBuilder} sets={sets} onApply={apply} />
           </section>
         </div>

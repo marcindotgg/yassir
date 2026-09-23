@@ -31,7 +31,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
   const set = <K extends keyof QueryState>(key: K, value: QueryState[K]) => props.onChange((s) => ({ ...s, [key]: value }));
 
   return (
-    <div class="sqb-stack">
+    <div class="sqb-stack sqb-qb">
       <div class="sqb-wrap">
         {PRESETS.map((p) => (
           <button key={p.label} type="button" class="sqb-btn sqb-btn-sm" onClick={() => setState({ ...EMPTY_QUERY, ...p.state })}>

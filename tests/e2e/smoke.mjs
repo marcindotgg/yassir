@@ -177,6 +177,7 @@ await step('a preset lands in the real search box', async () => {
 
 await step('Escape closes it and gives focus back to the real box', async () => {
   await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'), null, { timeout: 2000 });
   const state = await inPage(() => ({
     open: !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
     focused: document.activeElement === document.querySelector('input#q'),
@@ -195,11 +196,45 @@ await step('Enter in the modal runs the search', async () => {
   return q;
 });
 
-await step('stays off every other page', async () => {
-  await page.waitForTimeout(2500);
-  const n = await inPage(() => document.querySelectorAll('scryfall-query-builder').length);
-  if (n !== 0) throw new Error(`mounted ${n} times on /search`);
-  return 'absent on /search';
+await step('on /search the header box opens it, unfolding downwards', async () => {
+  await page.waitForSelector('scryfall-query-builder', { state: 'attached', timeout: 20000 });
+  await inPage(() => document.querySelector('#header-search-field').blur());
+  await page.click('#header-search-field');
+  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  const geo = await inPage(() => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    const mirror = root.querySelector('.sqb-mirror');
+    const anims = root.querySelector('.sqb-modal').getAnimations({ subtree: true });
+    anims.forEach((a) => {
+      a.pause();
+      a.currentTime = 0;
+    });
+    const a = document.querySelector('#header-search-field').getBoundingClientRect();
+    const start = mirror.getBoundingClientRect();
+    anims.forEach((a) => a.finish());
+    const end = mirror.getBoundingClientRect();
+    return {
+      dx: Math.abs(a.left - start.left) + Math.abs(a.right - start.right),
+      dy: Math.abs(a.top - start.top) + Math.abs(a.bottom - start.bottom),
+      down: end.top > start.top,
+      value: mirror.value,
+      // The header box is see-through; the copy must carry the header's colour.
+      opaque: !/rgba\(.*, 0\)/.test(getComputedStyle(mirror).backgroundColor),
+    };
+  });
+  await page.screenshot({ path: path.join(OUT, 'modal-header.png') });
+  if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror starts off by ${geo.dx}px / ${geo.dy}px`);
+  const q = new URL(page.url()).searchParams.get('q');
+  if (!geo.down || !geo.opaque || geo.value !== q) throw new Error(JSON.stringify({ ...geo, q }));
+  return `starts on the header box, settles lower, holds "${geo.value}"`;
+});
+
+await step('Escape on /search hands focus back to the header box', async () => {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'), null, { timeout: 2000 });
+  const focused = await inPage(() => document.activeElement === document.querySelector('#header-search-field'));
+  if (!focused) throw new Error('header box not focused');
+  return 'closed after the close animation, header box focused';
 });
 
 await ctx.close();
