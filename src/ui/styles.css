@@ -1,0 +1,311 @@
+@import './tokens.css';
+
+/*
+ * The host element is laid out from here rather than a `style` attribute:
+ * Scryfall's CSP (style-src without 'unsafe-inline') throws those away. WXT
+ * resets the host with `:host { all: initial !important }`, so these have to be
+ * !important to land at all. z-index lifts us over .homepage-collage, which is
+ * absolutely positioned and comes after the form in the DOM.
+ */
+:host {
+  display: block !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.sqb-root {
+  max-width: 760px;
+  margin: 0 auto;
+  font-family: var(--sqb-font);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--sqb-text);
+  box-sizing: border-box;
+}
+.sqb-root *,
+.sqb-root *::before,
+.sqb-root *::after {
+  box-sizing: border-box;
+}
+
+.sqb-panel {
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-radius);
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.sqb-title-flush {
+  margin: 0;
+}
+.sqb-chip-inline {
+  margin-left: 6px;
+}
+.sqb-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.sqb-muted {
+  color: var(--sqb-text-muted);
+}
+.sqb-small {
+  font-size: 12px;
+}
+.sqb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sqb-row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sqb-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sqb-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sqb-btn {
+  appearance: none;
+  border: 1px solid var(--sqb-border);
+  background: var(--sqb-bg);
+  color: var(--sqb-text);
+  border-radius: var(--sqb-radius-sm);
+  padding: 6px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+.sqb-btn:hover {
+  border-color: var(--sqb-primary);
+}
+.sqb-btn:active {
+  transform: translateY(1px);
+}
+.sqb-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.sqb-btn-primary {
+  background: var(--sqb-primary);
+  border-color: var(--sqb-primary);
+  color: var(--sqb-primary-contrast);
+}
+.sqb-btn-primary:hover {
+  background: var(--sqb-primary-strong);
+  border-color: var(--sqb-primary-strong);
+}
+.sqb-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--sqb-primary);
+}
+.sqb-btn-sm {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.sqb-btn-active {
+  background: var(--sqb-primary-soft);
+  border-color: var(--sqb-primary);
+}
+
+.sqb-input,
+.sqb-select {
+  font: inherit;
+  color: var(--sqb-text);
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-radius-sm);
+  padding: 5px 8px;
+  min-width: 0;
+}
+.sqb-input:focus,
+.sqb-select:focus {
+  outline: none;
+  border-color: var(--sqb-primary);
+  box-shadow: 0 0 0 3px var(--sqb-primary-soft);
+}
+.sqb-input-sm {
+  padding: 2px 6px;
+  width: 52px;
+  text-align: center;
+}
+.sqb-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sqb-text-muted);
+  font-weight: 600;
+}
+.sqb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sqb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sqb-bg-muted);
+  color: var(--sqb-text);
+  font-size: 12px;
+}
+
+/* --- query builder ------------------------------------------------------- */
+
+.sqb-qb {
+  margin-top: 12px;
+  text-align: left;
+}
+.sqb-qb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.sqb-qb-preview {
+  font-family: var(--sqb-mono);
+  font-size: 13px;
+  background: var(--sqb-bg-muted);
+  border-radius: var(--sqb-radius-sm);
+  padding: 8px 10px;
+  word-break: break-word;
+  min-height: 34px;
+}
+.sqb-color-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sqb-color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--sqb-border);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 12px;
+}
+.sqb-color-btn.sqb-on {
+  border-color: var(--sqb-primary);
+  box-shadow: 0 0 0 2px var(--sqb-primary-soft);
+}
+.sqb-explain {
+  margin: 0;
+  padding-left: 18px;
+}
+.sqb-explain li {
+  margin: 2px 0;
+}
+
+/* --- set autocomplete ---------------------------------------------------- */
+
+/* The field spans two grid columns: the set list is the widest control here. */
+.sqb-field-wide {
+  grid-column: span 2;
+}
+@media (max-width: 460px) {
+  .sqb-field-wide {
+    grid-column: auto;
+  }
+}
+.sqb-ac {
+  position: relative;
+}
+.sqb-ac > .sqb-input {
+  width: 100%;
+}
+.sqb-ac-list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-radius-sm);
+  box-shadow: var(--sqb-shadow);
+}
+.sqb-ac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: var(--sqb-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sqb-ac-item:hover,
+.sqb-ac-item.sqb-ac-active {
+  background: var(--sqb-primary-soft);
+}
+.sqb-ac-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sqb-ac-code {
+  font-family: var(--sqb-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--sqb-text-muted);
+}
+.sqb-ac-meta {
+  font-size: 11px;
+  color: var(--sqb-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sqb-ac-note {
+  padding: 6px 7px;
+  color: var(--sqb-text-muted);
+  font-size: 12px;
+}
+.sqb-set-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  object-fit: contain;
+  filter: var(--sqb-icon-filter);
+}
+
+.sqb-chip-remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  opacity: 0.6;
+}
+.sqb-chip-remove:hover {
+  opacity: 1;
+  color: var(--sqb-danger);
+}
