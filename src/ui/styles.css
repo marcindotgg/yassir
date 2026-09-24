@@ -388,6 +388,20 @@
 
 /* --- query builder ------------------------------------------------------- */
 
+/*
+ * Dropdowns and stacking. The rise-in animation makes every section of the body
+ * (and every child of .sqb-qb) its own stacking context, so a list hanging off a
+ * field would sit under whatever section comes next, whatever its z-index. The
+ * block holding the focused field — every dropdown here is open only while its
+ * input has focus — is lifted above its siblings instead, at each level.
+ */
+.sqb-sheet-body > :focus-within,
+.sqb-sheet-body > * > :focus-within,
+.sqb-qb > :focus-within,
+.sqb-qb-grid > :focus-within {
+  position: relative;
+  z-index: 5;
+}
 .sqb-qb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -402,24 +416,89 @@
   word-break: break-word;
   min-height: 34px;
 }
-.sqb-color-row {
+
+/* --- colors multiselect -------------------------------------------------- */
+
+.sqb-ms {
+  position: relative;
+}
+.sqb-ms-box {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 24px 3px 6px;
+  position: relative;
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-radius-sm);
+  cursor: text;
 }
-.sqb-color-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--sqb-border);
-  font-weight: 700;
-  cursor: pointer;
-  font-size: 12px;
-}
-.sqb-color-btn.sqb-on {
+.sqb-ms-box:focus-within {
   border-color: var(--sqb-primary);
-  box-shadow: 0 0 0 2px var(--sqb-primary-soft);
+  box-shadow: 0 0 0 3px var(--sqb-primary-soft);
+}
+.sqb-ms-input {
+  flex: 1 1 48px;
+  min-width: 48px;
+  padding: 2px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--sqb-text);
+  font: inherit;
+}
+.sqb-ms-caret {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--sqb-text-muted);
+  pointer-events: none;
+}
+/* Wider than the grid cell it hangs from, so names and letters fit. */
+.sqb-ms-list {
+  min-width: 240px;
+}
+.sqb-ms-group + .sqb-ms-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--sqb-border);
+}
+.sqb-ms-group-label {
+  padding: 4px 7px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sqb-text-muted);
+}
+.sqb-pie {
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--sqb-border);
+}
+.sqb-pie-sm {
+  width: 14px;
+  height: 14px;
+}
+.sqb-pie-lg {
+  width: 22px;
+  height: 22px;
+}
+/* Picked rows: a green border and name instead of a tick. The border is always
+   there (transparent) so picking a row doesn't shift anything. */
+.sqb-ms-list .sqb-ac-item {
+  border: 1px solid transparent;
+}
+.sqb-ms-list .sqb-ac-item.sqb-ms-selected {
+  border-color: var(--sqb-ok);
+}
+.sqb-ms-selected .sqb-ac-name {
+  color: var(--sqb-ok);
+  font-weight: 600;
 }
 .sqb-explain {
   margin: 0;
@@ -461,6 +540,11 @@
   border: 1px solid var(--sqb-border);
   border-radius: var(--sqb-radius-sm);
   box-shadow: var(--sqb-shadow);
+}
+/* Not enough room below inside the modal's body: open upwards. */
+.sqb-ac-list.sqb-drop-up {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 .sqb-ac-item {
   display: flex;

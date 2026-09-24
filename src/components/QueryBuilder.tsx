@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
-import { buildQuery, COLORS, EMPTY_QUERY, FLAGS, FORMATS, ORDERS, RARITIES, type QueryState } from '../lib/scryfall-syntax';
+import { buildQuery, EMPTY_QUERY, FLAGS, FORMATS, ORDERS, RARITIES, type QueryState } from '../lib/scryfall-syntax';
+import { ColorSelect } from './ColorSelect';
 import { SetAutocomplete } from './SetAutocomplete';
 import type { useSets } from './useSets';
 
@@ -18,7 +19,7 @@ const PRESETS: { label: string; state: Partial<QueryState> }[] = [
   { label: 'Standard-legal under €1', state: { format: 'standard', priceMax: '1', priceCurrency: 'eur', order: 'eur', direction: 'asc' } },
   { label: 'Cheap Commander staples', state: { format: 'commander', priceMax: '2', priceCurrency: 'eur', order: 'edhrec' } },
   { label: 'Mythic rares this year', state: { rarity: ['mythic'], year: `>=${new Date().getFullYear()}`, order: 'released', direction: 'desc' } },
-  { label: 'Mono-red instants', state: { colors: ['R'], colorMode: 'exact', type: 'instant' } },
+  { label: 'Red instants', state: { colors: ['R'], type: 'instant' } },
 ];
 
 const toggle = <T,>(list: T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -56,32 +57,10 @@ export function QueryBuilder(props: QueryBuilderProps) {
           <span class="sqb-label">Type (t:)</span>
           <input class="sqb-input" value={state.type} onInput={(e) => set('type', (e.target as HTMLInputElement).value)} placeholder="legendary creature" />
         </label>
-        <div class="sqb-field">
-          <span class="sqb-label">Colors</span>
-          <div class="sqb-color-row">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                class={`sqb-color-btn ${state.colors.includes(c) ? 'sqb-on' : ''}`}
-                style={{ background: { W: '#f8f6d8', U: '#c1d7e9', B: '#bab1ab', R: '#e49977', G: '#a3c095' }[c] }}
-                onClick={() => set('colors', toggle(state.colors, c))}
-                disabled={state.colorless}
-              >
-                {c}
-              </button>
-            ))}
-            <label class="sqb-row sqb-small">
-              <input type="checkbox" checked={state.colorless} onChange={(e) => set('colorless', (e.target as HTMLInputElement).checked)} /> colorless
-            </label>
-          </div>
-          <select class="sqb-select" value={state.colorMode} onChange={(e) => set('colorMode', (e.target as HTMLSelectElement).value as QueryState['colorMode'])}>
-            <option value="atMost">at most these colors (c&lt;=)</option>
-            <option value="exact">exactly these colors (c=)</option>
-            <option value="atLeast">at least these colors (c&gt;=)</option>
-            <option value="identity">fits this commander identity (id&lt;=)</option>
-          </select>
-        </div>
+        <ColorSelect
+          value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
+          onChange={(next) => props.onChange((s) => ({ ...s, ...next }))}
+        />
         <div class="sqb-field">
           <span class="sqb-label">Mana value</span>
           <div class="sqb-row">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { findSet, searchSets, setMeta, type SetSummary } from '../lib/sets';
+import { useDropdownPlacement } from './useDropdownPlacement';
 
 export type SetsStatus = 'loading' | 'ready' | 'error';
 
@@ -15,6 +16,7 @@ export interface SetAutocompleteProps {
 }
 
 const MAX_SUGGESTIONS = 12;
+const LIST_HEIGHT = 260;
 
 /**
  * Type a set name or code, pick from the dropdown, keep as many as you like.
@@ -25,6 +27,7 @@ export function SetAutocomplete(props: SetAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
   const listId = useRef(`sqb-sets-${Math.random().toString(36).slice(2, 8)}`).current;
 
   const suggestions = useMemo(() => {
@@ -75,6 +78,7 @@ export function SetAutocomplete(props: SetAutocompleteProps) {
   };
 
   const showList = open && (suggestions.length > 0 || props.status !== 'ready' || text.trim() !== '');
+  const placement = useDropdownPlacement(anchorRef, showList, LIST_HEIGHT);
 
   return (
     <div class="sqb-field sqb-field-wide">
@@ -98,7 +102,7 @@ export function SetAutocomplete(props: SetAutocompleteProps) {
         </div>
       )}
 
-      <div class="sqb-ac">
+      <div class="sqb-ac" ref={anchorRef}>
         <input
           ref={inputRef}
           class="sqb-input"
@@ -120,7 +124,13 @@ export function SetAutocomplete(props: SetAutocompleteProps) {
 
         {showList && (
           // mousedown default would blur the input and close the list before the click lands.
-          <ul class="sqb-ac-list" id={listId} role="listbox" onMouseDown={(e) => e.preventDefault()}>
+          <ul
+            class={`sqb-ac-list ${placement.up ? 'sqb-drop-up' : ''}`}
+            style={{ maxHeight: `${placement.maxHeight}px` }}
+            id={listId}
+            role="listbox"
+            onMouseDown={(e) => e.preventDefault()}
+          >
             {props.status === 'loading' && suggestions.length === 0 && <li class="sqb-ac-note">Loading the set list from Scryfall…</li>}
 
             {props.status === 'error' && (

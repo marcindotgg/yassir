@@ -1,14 +1,13 @@
 // Pure helpers behind the query builder: state -> query string, and a small
 // explainer for the most common operators. No DOM, unit-tested.
 
-export type ColorMode = 'exact' | 'atMost' | 'atLeast' | 'identity';
-
 export interface QueryState {
   name: string;
   text: string;
   type: string;
   colors: string[];
-  colorMode: ColorMode;
+  /** Names from COLOR_COMBOS (`izzet`, `jund`…). Each becomes its own term, so they AND together. */
+  colorCombos: string[];
   colorless: boolean;
   manaValue: string;
   manaValueOp: '=' | '<=' | '>=' | '<' | '>';
@@ -32,7 +31,7 @@ export const EMPTY_QUERY: QueryState = {
   text: '',
   type: '',
   colors: [],
-  colorMode: 'atMost',
+  colorCombos: [],
   colorless: false,
   manaValue: '',
   manaValueOp: '=',
@@ -51,6 +50,76 @@ export const EMPTY_QUERY: QueryState = {
 };
 
 export const COLORS = ['W', 'U', 'B', 'R', 'G'] as const;
+
+export interface ColorCombo {
+  /** The nickname Scryfall accepts as a color value: `c>=izzet`. */
+  name: string;
+  /** Its colors in WUBRG order, upper-case. */
+  colors: string;
+}
+
+/** Scryfall's named color combinations, in the order the builder lists them. */
+export const COLOR_COMBO_GROUPS: readonly { label: string; combos: readonly ColorCombo[] }[] = [
+  {
+    label: 'Guilds',
+    combos: [
+      { name: 'azorius', colors: 'WU' },
+      { name: 'dimir', colors: 'UB' },
+      { name: 'rakdos', colors: 'BR' },
+      { name: 'gruul', colors: 'RG' },
+      { name: 'selesnya', colors: 'GW' },
+      { name: 'orzhov', colors: 'WB' },
+      { name: 'izzet', colors: 'UR' },
+      { name: 'golgari', colors: 'BG' },
+      { name: 'boros', colors: 'RW' },
+      { name: 'simic', colors: 'GU' },
+    ],
+  },
+  {
+    label: 'Shards',
+    combos: [
+      { name: 'bant', colors: 'GWU' },
+      { name: 'esper', colors: 'WUB' },
+      { name: 'grixis', colors: 'UBR' },
+      { name: 'jund', colors: 'BRG' },
+      { name: 'naya', colors: 'RGW' },
+    ],
+  },
+  {
+    label: 'Wedges',
+    combos: [
+      { name: 'abzan', colors: 'WBG' },
+      { name: 'jeskai', colors: 'URW' },
+      { name: 'sultai', colors: 'BGU' },
+      { name: 'mardu', colors: 'RWB' },
+      { name: 'temur', colors: 'GUR' },
+    ],
+  },
+  {
+    label: 'Four colors',
+    combos: [
+      { name: 'chaos', colors: 'UBRG' },
+      { name: 'aggression', colors: 'WBRG' },
+      { name: 'altruism', colors: 'WURG' },
+      { name: 'growth', colors: 'WUBG' },
+      { name: 'artifice', colors: 'WUBR' },
+    ],
+  },
+  {
+    label: 'Five colors',
+    combos: [{ name: 'rainbow', colors: 'WUBRG' }],
+  },
+];
+
+/** Nickname -> colors, for the explainer. Adds the Strixhaven colleges, which the builder leaves out (same colors as the guilds). */
+const COMBO_COLORS = new Map<string, string>([
+  ...COLOR_COMBO_GROUPS.flatMap((g) => g.combos.map((c): [string, string] => [c.name, c.colors])),
+  ['silverquill', 'WB'],
+  ['prismari', 'UR'],
+  ['witherbloom', 'BG'],
+  ['lorehold', 'RW'],
+  ['quandrix', 'GU'],
+]);
 export const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const;
 export const FORMATS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper', 'brawl', 'alchemy', 'historic'] as const;
 export const FLAGS = ['foil', 'nonfoil', 'promo', 'reprint', 'firstprint', 'digital', 'fullart', 'showcase', 'extended', 'borderless', 'commander', 'reserved'] as const;
@@ -73,10 +142,11 @@ export function buildQuery(state: QueryState): string {
   for (const word of splitTerms(state.type)) parts.push(`t:${quote(word)}`);
 
   if (state.colorless) parts.push('c:c');
-  else if (state.colors.length) {
+  else {
     const letters = COLORS.filter((c) => state.colors.includes(c)).join('').toLowerCase();
-    const op = { exact: 'c=', atMost: 'c<=', atLeast: 'c>=', identity: 'id<=' }[state.colorMode];
-    parts.push(op + letters);
+    if (letters) parts.push(`c<=${letters}`);
+    // Any of the picked combinations: `(c=orzhov or c=izzet)`.
+    parts.push(...orGroup(state.colorCombos.map((name) => `c=${name}`)));
   }
 
   if (state.manaValue.trim() !== '' && /^\d+(\.\d+)?$/.test(state.manaValue.trim())) {
@@ -105,6 +175,29 @@ export function buildQuery(state: QueryState): string {
   }
 
   return parts.join(' ');
+}
+
+export type ColorSelection = Pick<QueryState, 'colors' | 'colorless' | 'colorCombos'>;
+
+export type ColorOption = { kind: 'color'; value: (typeof COLORS)[number] } | { kind: 'colorless' } | { kind: 'combo'; value: string };
+
+/**
+ * Toggles one option of the colors multiselect. The three kinds exclude each
+ * other: picking colorless or a combination clears the single colors, and
+ * picking a single color clears colorless and the combinations. Within a kind
+ * the picks accumulate.
+ */
+export function toggleColorOption(sel: ColorSelection, option: ColorOption): ColorSelection {
+  const none: ColorSelection = { colors: [], colorless: false, colorCombos: [] };
+  const flip = <T>(list: readonly T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  switch (option.kind) {
+    case 'color':
+      return { ...none, colors: flip(sel.colors, option.value) };
+    case 'colorless':
+      return { ...none, colorless: !sel.colorless };
+    case 'combo':
+      return { ...none, colorCombos: flip(sel.colorCombos, option.value) };
+  }
 }
 
 /** [] | ['a'] | ['(a or b)'] — Scryfall ANDs bare terms, so alternatives need the group. */
@@ -236,13 +329,15 @@ export function explainQuery(query: string, setNames?: ReadonlyMap<string, strin
 
     if (key === 'c' || key === 'color' || key === 'id' || key === 'identity') {
       const which = key === 'c' || key === 'color' ? 'colors' : 'color identity';
-      const named = value
-        .toLowerCase()
-        .split('')
-        .map((l) => COLOR_NAMES[l] ?? l)
-        .join(' + ');
-      const named2 = COLOR_NAMES[value.toLowerCase()] ?? named;
-      return { token, text: `${not}${which} ${OP_WORDS[op] ?? op} ${named2}`, known: true };
+      const nickname = COMBO_COLORS.get(value.toLowerCase());
+      const spell = (letters: string) =>
+        letters
+          .toLowerCase()
+          .split('')
+          .map((l) => COLOR_NAMES[l] ?? l)
+          .join(' + ');
+      const named = nickname ? `${value.toLowerCase()} (${spell(nickname)})` : (COLOR_NAMES[value.toLowerCase()] ?? spell(value));
+      return { token, text: `${not}${which} ${OP_WORDS[op] ?? op} ${named}`, known: true };
     }
     if (SET_KEYS.has(key)) {
       const name = setNames?.get(value.toLowerCase());

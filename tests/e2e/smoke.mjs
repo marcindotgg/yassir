@@ -47,7 +47,7 @@ const inPage = (fn, arg) => page.evaluate(fn, arg);
 const shadowText = () => inPage(() => document.querySelector('scryfall-query-builder')?.shadowRoot?.textContent ?? '');
 const setsInput = () => inPage(() => {
   const root = document.querySelector('scryfall-query-builder').shadowRoot;
-  return [...root.querySelectorAll('input')].some((i) => i.getAttribute('role') === 'combobox');
+  return !!root.querySelector('.sqb-ac input[role=combobox]');
 });
 
 await step('mounts on the homepage', async () => {
@@ -104,20 +104,43 @@ await step('typing in the modal writes through to the real box', async () => {
   return value;
 });
 
+/** Every row of the open list `sel` must be on top where it is drawn, and not cut off by the modal body. */
+const listOnTop = (sel) =>
+  inPage((selector) => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    const list = root.querySelector(selector);
+    if (!list) return 'no list';
+    const body = root.querySelector('.sqb-sheet-body').getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    if (box.top < body.top - 1 || box.bottom > body.bottom + 1) return `list ${Math.round(box.top)}-${Math.round(box.bottom)} outside the body ${Math.round(body.top)}-${Math.round(body.bottom)}`;
+    const bad = [...list.querySelectorAll('button')]
+      .filter((row) => {
+        const r = row.getBoundingClientRect();
+        return r.bottom > box.top && r.top < box.bottom; // rows scrolled into the list's view
+      })
+      .filter((row) => {
+        const r = row.getBoundingClientRect();
+        const y = Math.min(Math.max((r.top + r.bottom) / 2, box.top + 2), box.bottom - 2);
+        const hit = root.elementFromPoint(r.left + 20, y);
+        return !hit || !list.contains(hit);
+      });
+    return bad.length ? `covered rows: ${bad.map((b) => b.textContent.trim()).join(', ')}` : '';
+  }, sel);
+
 await step('the set list loads from api.scryfall.com', async () => {
   await page.waitForFunction(
     () => {
       const root = document.querySelector('scryfall-query-builder')?.shadowRoot;
-      const input = [...(root?.querySelectorAll('input') ?? [])].find((i) => i.getAttribute('role') === 'combobox');
+      const input = root?.querySelector('.sqb-ac input[role=combobox]');
       return input && !/Loading/.test(input.placeholder);
     },
     null,
     { timeout: 30000 },
   );
   await typeSet('modern horizons');
-  await page.waitForFunction(() => (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-ac-item').length ?? 0) > 0, null, { timeout: 8000 });
+  await page.waitForFunction(() => (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-ac .sqb-ac-item').length ?? 0) > 0, null, { timeout: 8000 });
   const rows = await inPage(() =>
-    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ac-item')].slice(0, 3).map((b) => b.querySelector('.sqb-ac-name').textContent),
+    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ac .sqb-ac-item')].slice(0, 3).map((b) => b.querySelector('.sqb-ac-name').textContent),
   );
   // The main sets must outrank their token/promo/supplemental children.
   if (rows[0] !== 'Modern Horizons 3') throw new Error(`unexpected ranking: ${rows.join(' | ')}`);
@@ -127,7 +150,7 @@ await step('the set list loads from api.scryfall.com', async () => {
 async function typeSet(value) {
   await inPage((v) => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    const input = [...root.querySelectorAll('input')].find((i) => i.getAttribute('role') === 'combobox');
+    const input = root.querySelector('.sqb-ac input[role=combobox]');
     input.focus();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, v);
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -136,7 +159,9 @@ async function typeSet(value) {
 
 await step('picking a set reaches the query', async () => {
   await page.screenshot({ path: path.join(OUT, 'set-dropdown.png') });
-  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-ac-item').click());
+  const covered = await listOnTop('.sqb-ac .sqb-ac-list');
+  if (covered) throw new Error(`set list: ${covered}`);
+  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-ac .sqb-ac-item').click());
   await page.waitForFunction(() => /s:mh3/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-qb-preview')?.textContent ?? ''), null, { timeout: 5000 });
   return inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-qb-preview').textContent);
 });
@@ -155,13 +180,49 @@ await step('the explainer names the set', async () => {
   return text;
 });
 
+await step('the colors multiselect: groups exclude each other, Escape only closes its list', async () => {
+  const preview = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-qb-preview').textContent);
+  const chips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));
+  const pick = async (label) => page.locator('.sqb-ms-list button', { hasText: label }).first().click();
+  const waitPreview = (re) => page.waitForFunction((src) => new RegExp(src).test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-qb-preview')?.textContent ?? ''), re, { timeout: 5000 });
+
+  await page.locator('.sqb-ms-input').click();
+  await page.waitForSelector('.sqb-ms-list', { timeout: 3000 });
+  await pick('Izzet');
+  await pick('Boros');
+  await waitPreview('\\(c=izzet or c=boros\\)');
+  const covered = await listOnTop('.sqb-ms-list');
+  if (covered) throw new Error(`colors list: ${covered}`);
+  const groups = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-group-label')].map((g) => g.textContent));
+  if (groups.join('|') !== 'Colors|Guilds|Shards|Wedges|Four colors|Five colors') throw new Error(`groups: ${groups}`);
+  await pick('Red');
+  await waitPreview('(^| )c<=r( |$)');
+  if ((await preview()).includes('izzet')) throw new Error(`a single color should clear the combinations: ${await preview()}`);
+  await pick('Jund');
+  await waitPreview('c=jund');
+  if (/c<=r\b/.test(await preview())) throw new Error(`a combination should clear the single colors: ${await preview()}`);
+  await pick('Colorless');
+  await waitPreview('c:c');
+  const afterColorless = await chips();
+  if (afterColorless.join('|') !== 'Colorless') throw new Error(`chips after colorless: ${afterColorless}`);
+  await page.screenshot({ path: path.join(OUT, 'colors.png') });
+
+  await page.keyboard.press('Escape');
+  const state = await inPage(() => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    return { list: !!root.querySelector('.sqb-ms-list'), modal: !!root.querySelector('.sqb-mirror') };
+  });
+  if (state.list || !state.modal) throw new Error(`Escape should close only the list: ${JSON.stringify(state)}`);
+  return `chips: ${afterColorless.join(', ')}; ${await preview()}`;
+});
+
 await step('a preset lands in the real search box', async () => {
   await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    [...root.querySelectorAll('button')].find((b) => /Mono-red instants/.test(b.textContent)).click();
+    [...root.querySelectorAll('button')].find((b) => /Red instants/.test(b.textContent)).click();
   });
   // Preact batches the state update; wait for the preview before inserting.
-  await page.waitForFunction(() => /c=r/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-qb-preview')?.textContent ?? ''), null, { timeout: 5000 });
+  await page.waitForFunction(() => /c<=r/.test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-qb-preview')?.textContent ?? ''), null, { timeout: 5000 });
   await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
     [...root.querySelectorAll('button')].find((b) => /Replace search/.test(b.textContent)).click();
@@ -171,7 +232,7 @@ await step('a preset lands in the real search box', async () => {
     page.inputValue('input#q'),
     inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value),
   ]);
-  if (!value.includes('c=r') || value !== mirror) throw new Error(`box: ${value} / mirror: ${mirror}`);
+  if (!value.includes('c<=r') || value !== mirror) throw new Error(`box: ${value} / mirror: ${mirror}`);
   return value;
 });
 
@@ -192,7 +253,7 @@ await step('Enter in the modal runs the search', async () => {
   await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
   await Promise.all([page.waitForURL(/\/search\?/, { timeout: 15000 }), page.keyboard.press('Enter')]);
   const q = new URL(page.url()).searchParams.get('q');
-  if (!q?.includes('c=r')) throw new Error(`searched for ${q}`);
+  if (!q?.includes('c<=r')) throw new Error(`searched for ${q}`);
   return q;
 });
 

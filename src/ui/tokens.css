@@ -19,6 +19,7 @@
   --sqb-primary-contrast: #ffffff;
 
   --sqb-danger: #dc2626;
+  --sqb-ok: #15803d;
   /* Scryfall's set symbols are near-black SVGs; dark themes flip them. */
   --sqb-icon-filter: none;
 }
@@ -37,6 +38,7 @@
     --sqb-primary-strong: #c7d2fe;
     --sqb-primary-soft: #312e81;
     --sqb-primary-contrast: #1e1b4b;
+    --sqb-ok: #4ade80;
     --sqb-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
     --sqb-icon-filter: invert(1);
   }
@@ -52,6 +54,7 @@
   --sqb-primary-strong: #c7d2fe;
   --sqb-primary-soft: #312e81;
   --sqb-primary-contrast: #1e1b4b;
+  --sqb-ok: #4ade80;
   --sqb-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   --sqb-icon-filter: invert(1);
 }

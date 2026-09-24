@@ -23,7 +23,8 @@ backend other than Scryfall's public API.
   to Scryfall's box, a click outside closes it. The explainer and the builder
   live in the sheet.
 - **Query builder** — name, rules text,
-  type, colors (with `c=` / `c<=` / `c>=` / `id<=`), mana value, rarity, sets,
+  type, colors (a Select2-style multiselect of single colors, colorless and
+  named combinations like Izzet or Jund, always `c<=`), mana value, rarity, sets,
   format, max price, power/toughness, artist, year, `is:` flags and sorting,
   with a live preview of the query it produces. *Replace search* or *Add to
   search* writes it into the box; *Search* runs it.
