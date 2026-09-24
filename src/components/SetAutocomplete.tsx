@@ -81,7 +81,7 @@ export function SetAutocomplete(props: SetAutocompleteProps) {
   const placement = useDropdownPlacement(anchorRef, showList, LIST_HEIGHT);
 
   return (
-    <div class="sqb-field sqb-field-wide">
+    <div class="sqb-field sqb-sets">
       <span class="sqb-label">Sets (s:)</span>
 
       {props.selected.length > 0 && (

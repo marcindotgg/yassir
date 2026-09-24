@@ -169,6 +169,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [value, setValue] = useState('');
   /** Whether the query last changed by being typed into, rather than from the builder. */
   const [typing, setTyping] = useState(false);
+  /** The query in the box has been submitted; cleared as soon as it changes. */
+  const [searching, setSearching] = useState(false);
   const reading = useMemo(() => readQuery(value), [value]);
   const sets = useSets();
   const mirrorRef = useRef<HTMLInputElement>(null);
@@ -185,7 +187,17 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const sync = (next: string, typed = false) => {
     setValue(next);
     setTyping(typed);
+    setSearching(false);
     input.value = next;
+  };
+
+  /**
+   * Submits there and then; the button only reports it afterwards. Nothing waits
+   * on the re-render or an animation, so the request leaves on the same click.
+   */
+  const search = () => {
+    submit();
+    setSearching(true);
   };
 
   /** Tears the sheet down once the close animation has put the copy back on Scryfall's box. */
@@ -241,6 +253,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       unhide.current = hideAll([input, ...covered]);
       setValue(input.value);
       setTyping(false);
+      setSearching(false);
       setSession(next);
     };
     // A click on the box it already has focus (e.g. after Escape) opens it too.
@@ -326,7 +339,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const onMirrorKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.isComposing) {
       e.preventDefault();
-      submit();
+      search();
     }
   };
 
@@ -398,7 +411,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
               typing={typing}
               onRemove={remove}
               onClear={clear}
-              onSearch={submit}
+              onSearch={search}
+              searching={searching}
               sets={sets}
             />
           </section>

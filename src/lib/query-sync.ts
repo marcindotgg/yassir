@@ -191,6 +191,14 @@ const CLAIMERS: readonly Claimer[] = [
     },
   },
   {
+    field: 'otag',
+    many: true,
+    read: (n, s) => {
+      const t = keyed(n, ['otag', 'oracletag', 'function'], [':']);
+      return t ? { otag: add(s.otag, word(t)) } : null;
+    },
+  },
+  {
     field: 'year',
     read: (n) => {
       const t = keyed(n, ['year'], CMP);

@@ -22,7 +22,15 @@ export default defineContentScript({
       else cleanup = remove;
     };
 
-    ctx.addEventListener(window, 'wxt:locationchange', () => void start());
+    // WXT reports this from the Navigation API's navigate event, which also fires
+    // as a search (or a link) starts loading another page — with this one still
+    // up, sheet and all. Only remount once this document's own URL has moved
+    // (pushState and the like); a page on its way out is left as it is.
+    ctx.addEventListener(window, 'wxt:locationchange', ({ newUrl }) => {
+      ctx.setTimeout(() => {
+        if (location.href === newUrl.href) void start();
+      });
+    });
     ctx.onInvalidated(() => cleanup?.());
     void start();
   },

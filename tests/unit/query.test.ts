@@ -50,7 +50,7 @@ describe('query parser', () => {
 
 describe('reading the form out of the query', () => {
   it('fills every field it has a term for', () => {
-    const q = 'bolt t:instant o:draw o:"a card" c<=ur mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" year>=2020 is:foil order:eur direction:desc';
+    const q = 'bolt t:instant o:draw o:"a card" c<=ur mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
     const { state, extras: rest } = readQuery(q);
     expect(rest).toEqual([]);
     expect(state).toEqual({
@@ -69,6 +69,7 @@ describe('reading the form out of the query', () => {
       power: '>=4',
       toughness: '2',
       artist: 'Seb McKinnon',
+      otag: 'removal mana-rock',
       year: '>=2020',
       flags: ['foil'],
       order: 'eur',
@@ -81,7 +82,7 @@ describe('reading the form out of the query', () => {
       { name: 'Lightning Bolt', colorless: true, rarity: ['common'] },
       { colorCombos: ['orzhov', 'izzet'], sets: ['mh3'], flags: ['foil', 'promo'], order: 'name' },
       { text: 'draw "a card"', type: 'legendary creature', manaValue: '3', manaValueOp: '<', priceMax: '2', priceCurrency: 'usd' },
-      { name: "Urza's", power: '!=3', year: '2020', direction: 'asc' },
+      { name: "Urza's", power: '!=3', otag: 'removal ramp', year: '2020', direction: 'asc' },
     ];
     for (const s of states) {
       const state = { ...EMPTY_QUERY, ...s };
@@ -92,7 +93,7 @@ describe('reading the form out of the query', () => {
   });
 
   it('understands aliases, short forms and color nicknames', () => {
-    expect(readQuery('type:elf oracle:flying cmc:3 rarity:m e:MH3 legal:pauper usd<=5 power>2 artist:avon').state).toMatchObject({
+    expect(readQuery('type:elf oracle:flying cmc:3 rarity:m e:MH3 legal:pauper usd<=5 power>2 artist:avon function:removal').state).toMatchObject({
       type: 'elf',
       text: 'flying',
       manaValue: '3',
@@ -104,6 +105,7 @@ describe('reading the form out of the query', () => {
       priceCurrency: 'usd',
       power: '>2',
       artist: 'avon',
+      otag: 'removal',
     });
     expect(readQuery('c<=izzet').state.colors).toEqual(['U', 'R']);
     expect(readQuery('c:c').state.colorless).toBe(true);
@@ -163,6 +165,7 @@ describe('writing the form into the query', () => {
     expect(edit('o:draw kw:flying o:card', { text: 'draw' })).toBe('o:draw kw:flying');
     expect(edit('is:foil t:elf is:promo', { flags: ['promo'] })).toBe('is:promo t:elf');
     expect(edit('is:foil t:elf', { flags: ['foil', 'promo'] })).toBe('is:foil is:promo t:elf');
+    expect(edit('otag:removal t:elf', { otag: 'removal ramp' })).toBe('otag:removal otag:ramp t:elf');
   });
 
   it('turns an alternative into an or-group where the field stood', () => {
@@ -203,9 +206,9 @@ describe('removing a pinned condition', () => {
 
 describe('naming pinned conditions', () => {
   it('names keywords, operators and negations', () => {
-    expect(pins('kw:flying otag:removal -t:creature loy>=3 usd>10 c>=wu id<=izzet mv:even')).toEqual([
+    expect(pins('kw:flying atag:dragon -t:creature loy>=3 usd>10 c>=wu id<=izzet mv:even')).toEqual([
       'Keyword: flying',
-      'Oracle tag: removal',
+      'Art tag: dragon',
       'not Type: creature',
       'Loyalty ≥ 3',
       'Price (USD) > 10',

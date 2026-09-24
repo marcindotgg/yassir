@@ -174,7 +174,7 @@ async function typeSet(value) {
 }
 
 await step('a set typed into the query shows as a chip; a picked one joins it in place', async () => {
-  const chips = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-field-wide .sqb-chip')].map((c) => c.textContent));
+  const chips = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-chip')].map((c) => c.textContent));
   if (!chips.some((c) => /ltr/i.test(c))) throw new Error(`set chips: ${chips}`);
   await page.screenshot({ path: path.join(OUT, 'set-dropdown.png') });
   const covered = await listOnTop('.sqb-ac .sqb-ac-list');
@@ -187,7 +187,7 @@ await step('a set typed into the query shows as a chip; a picked one joins it in
 });
 
 await step('removing a set chip takes it out of the query', async () => {
-  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-field-wide .sqb-chip .sqb-chip-remove').click());
+  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-sets .sqb-chip .sqb-chip-remove').click());
   await waitQuery('^t:instant s:mh3$');
   return mirrorValue();
 });

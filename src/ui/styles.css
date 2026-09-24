@@ -112,6 +112,31 @@
   background: var(--sqb-primary-soft);
   border-color: var(--sqb-primary);
 }
+/* Clicked and waiting on the page it sent off: held down, with a spinner. */
+.sqb-btn-busy,
+.sqb-btn-busy:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sqb-primary-strong);
+  border-color: var(--sqb-primary-strong);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  transform: translateY(1px);
+  cursor: progress;
+}
+.sqb-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sqb-spin 0.7s linear infinite;
+}
+@keyframes sqb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .sqb-input,
 .sqb-select {
@@ -384,14 +409,62 @@
 .sqb-sheet-body > :focus-within,
 .sqb-sheet-body > * > :focus-within,
 .sqb-qb > :focus-within,
-.sqb-qb-grid > :focus-within {
+.sqb-qb-cols > :focus-within,
+.sqb-qb-col > :focus-within {
   position: relative;
   z-index: 5;
 }
-.sqb-qb-grid {
+/*
+ * Two columns: on the left what's printed on the card, in the order it's
+ * printed (name, cost, type line, rarity and set, rules text, P/T); on the
+ * right, set off by a rule, everything else. One column when narrow.
+ */
+.sqb-qb-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+.sqb-qb-col {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  min-width: 0;
+}
+.sqb-qb-col-aside {
+  padding-left: 20px;
+  border-left: 1px solid var(--sqb-border);
+}
+@media (max-width: 640px) {
+  .sqb-qb-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sqb-qb-col-aside {
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: 0;
+    border-top: 1px solid var(--sqb-border);
+  }
+}
+/* Two fields read as one line of the card: colors with mana value, power with toughness. */
+.sqb-qb-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.sqb-qb-pair-mana {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+/* Flags cut across both columns, so they sit under a rule of their own. */
+.sqb-qb-flags {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sqb-border);
+}
+/* Clear, then Search, at the bottom right where the form ends. */
+.sqb-qb-actions {
+  justify-content: flex-end;
 }
 /*
  * Conditions in the query that no field shows. The section is there only while
@@ -544,15 +617,6 @@
 
 /* --- set autocomplete ---------------------------------------------------- */
 
-/* The field spans two grid columns: the set list is the widest control here. */
-.sqb-field-wide {
-  grid-column: span 2;
-}
-@media (max-width: 460px) {
-  .sqb-field-wide {
-    grid-column: auto;
-  }
-}
 .sqb-ac {
   position: relative;
 }

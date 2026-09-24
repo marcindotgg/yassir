@@ -20,6 +20,8 @@ export interface QueryState {
   power: string;
   toughness: string;
   artist: string;
+  /** Scryfall Tagger's oracle tags (`removal`, `mana-rock`); each word is its own `otag:` term. */
+  otag: string;
   year: string;
   flags: string[];
   order: string;
@@ -43,6 +45,7 @@ export const EMPTY_QUERY: QueryState = {
   power: '',
   toughness: '',
   artist: '',
+  otag: '',
   year: '',
   flags: [],
   order: '',
@@ -131,7 +134,7 @@ const BARE_NAME = /^[^\s"():<>=!\/-][^\s"():<>=!]*$/;
 const NUMBER = /^\d+(\.\d+)?$/;
 
 /** The form's fields, in the order buildQuery lays them out. */
-export const FIELDS = ['name', 'text', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'year', 'flags', 'order', 'direction'] as const;
+export const FIELDS = ['name', 'text', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'otag', 'year', 'flags', 'order', 'direction'] as const;
 export type FieldId = (typeof FIELDS)[number];
 
 /**
@@ -160,6 +163,7 @@ export const FIELD_TERMS: Record<FieldId, (state: QueryState) => string[]> = {
   power: (s) => compare('pow', s.power),
   toughness: (s) => compare('tou', s.toughness),
   artist: (s) => (s.artist.trim() ? [`a:${quote(s.artist)}`] : []),
+  otag: (s) => splitTerms(s.otag).map((tag) => `otag:${quote(tag)}`),
   year: (s) => compare('year', s.year),
   flags: (s) => s.flags.map((flag) => `is:${flag}`),
   order: (s) => (s.order ? [`order:${s.order}`] : []),
