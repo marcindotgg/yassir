@@ -1,8 +1,7 @@
 # Scryfall Query Builder
 
 A standalone browser extension that adds an advanced search builder to
-[scryfall.com](https://scryfall.com): a form for Scryfall's search syntax, an
-explainer that translates a query back into plain English, and set-name
+[scryfall.com](https://scryfall.com): a form for Scryfall's search syntax and set-name
 autocomplete backed by the Scryfall API.
 
 It was split out of the [MTGenie extension](../extension), which keeps
@@ -20,8 +19,8 @@ backend other than Scryfall's public API.
   — widening as it goes, the page blurs behind it and the panel unfolds below,
   its contents rising in one after another. Closing plays that back onto the
   original box. Both boxes stay in sync; Enter searches, Escape hands focus back
-  to Scryfall's box, a click outside closes it. The explainer and the builder
-  live in the sheet.
+  to Scryfall's box, a click outside closes it. The builder
+  lives in the sheet.
 - **Query builder** — name, rules text,
   type, colors (a Select2-style multiselect of single colors, colorless and
   named combinations like Izzet or Jund, always `c<=`), mana value, rarity, sets,
@@ -33,9 +32,6 @@ backend other than Scryfall's public API.
   `(s:mh3 or s:ltr)`. The list comes from `https://api.scryfall.com/sets`,
   fetched by the background worker and cached in `storage.local` for 24 hours,
   so normal use costs one request a day.
-- **Query explainer** — explains whatever is in the box as you type, operator
-  by operator; unknown tokens are flagged rather than dropped. Set
-  codes are resolved to names (`s:mh3` → "set is Modern Horizons 3 (mh3)").
 
 ## Layout
 
@@ -44,7 +40,7 @@ entrypoints/        background.ts (set list + cache), scryfall.content.tsx
 src/background/     the Scryfall /sets fetch, its cache and TTL
 src/content/        selectors for both search boxes, mounting the modal
 src/components/     Preact: SearchModal, QueryBuilder, SetAutocomplete, useSets
-src/lib/            pure helpers: query build/explain, set parsing + search
+src/lib/            pure helpers: query build, set parsing + search
 src/ui/             shadow-root mounting, theme detection, styles + tokens
 tests/unit/         vitest + happy-dom
 tests/e2e/smoke.mjs Playwright run against live scryfall.com

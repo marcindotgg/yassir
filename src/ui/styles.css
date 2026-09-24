@@ -39,17 +39,6 @@
   margin: 12px 0;
 }
 
-.sqb-title-flush {
-  margin: 0;
-}
-.sqb-chip-inline {
-  margin-left: 6px;
-}
-.sqb-title {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 0 0 4px;
-}
 .sqb-muted {
   color: var(--sqb-text-muted);
 }
@@ -302,9 +291,6 @@
   animation: sqb-rise 0.26s var(--sqb-out) both;
   animation-delay: calc(150ms + var(--sqb-i, 0) * 25ms);
 }
-.sqb-title.sqb-rise {
-  --sqb-i: 1;
-}
 .sqb-qb > :nth-child(1) {
   --sqb-i: 2;
 }
@@ -499,13 +485,6 @@
 .sqb-ms-selected .sqb-ac-name {
   color: var(--sqb-ok);
   font-weight: 600;
-}
-.sqb-explain {
-  margin: 0;
-  padding-left: 18px;
-}
-.sqb-explain li {
-  margin: 2px 0;
 }
 
 /* --- set autocomplete ---------------------------------------------------- */

@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { EMPTY_QUERY, explainQuery, type QueryState } from '../lib/scryfall-syntax';
-import { setNameIndex } from '../lib/sets';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { EMPTY_QUERY, type QueryState } from '../lib/scryfall-syntax';
 import { backgroundBehind } from '../ui/theme';
 import { QueryBuilder, type ApplyMode } from './QueryBuilder';
 import { useSets } from './useSets';
@@ -160,7 +159,7 @@ function lockScroll(): () => void {
  * Focusing Scryfall's search box opens this sheet with a copy of the box on top,
  * pixel for pixel where the original sits, holding the same text and caret — so
  * it reads as the same input growing a panel, not a dialog. Below it, the query
- * is explained as you type, and the query builder can write into it.
+ * builder can write into it.
  */
 export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
@@ -177,9 +176,6 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     unhide.current?.();
     unhide.current = null;
   };
-
-  const setNames = useMemo(() => setNameIndex(sets.sets), [sets.sets]);
-  const explanation = useMemo(() => (value.trim() ? explainQuery(value, setNames) : []), [value, setNames]);
 
   /** Writes into Scryfall's box. No input event while open: nothing should react behind the sheet. */
   const sync = (next: string) => {
@@ -383,24 +379,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
         </div>
 
         <div class="sqb-sheet-body">
-          <section class="sqb-stack sqb-rise">
-            <div class="sqb-title">What this query means</div>
-            {explanation.length === 0 ? (
-              <div class="sqb-muted">Start typing — each part of the query is explained here as you go.</div>
-            ) : (
-              <ul class="sqb-explain">
-                {explanation.map((e, i) => (
-                  <li key={i}>
-                    <code>{e.token}</code> — {e.text}
-                    {!e.known && <span class="sqb-chip sqb-chip-inline">unknown</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
           <section class="sqb-stack">
-            <div class="sqb-title sqb-rise">Query builder</div>
             <QueryBuilder state={builder} onChange={setBuilder} sets={sets} onApply={apply} />
           </section>
         </div>

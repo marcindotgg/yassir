@@ -174,12 +174,6 @@ await step('a second set becomes an or-group', async () => {
   return inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-qb-preview').textContent);
 });
 
-await step('the explainer names the set', async () => {
-  const text = await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-explain').textContent.replace(/\s+/g, ' ').trim());
-  if (!/Modern Horizons 3/.test(text)) throw new Error(`set name not resolved: ${text}`);
-  return text;
-});
-
 await step('the colors multiselect: groups exclude each other, Escape only closes its list', async () => {
   const preview = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-qb-preview').textContent);
   const chips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));

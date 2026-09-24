@@ -121,11 +121,6 @@ export function searchSets(sets: readonly SetSummary[], query: string, limit = 1
   return scored.slice(0, limit).map((s) => s.set);
 }
 
-/** code -> name, for the explainer. */
-export function setNameIndex(sets: readonly SetSummary[]): Map<string, string> {
-  return new Map(sets.map((s) => [s.code, s.name]));
-}
-
 export function findSet(sets: readonly SetSummary[], code: string): SetSummary | undefined {
   const c = code.trim().toLowerCase();
   return sets.find((s) => s.code === c);

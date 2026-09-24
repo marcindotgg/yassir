@@ -9,7 +9,7 @@ export default defineConfig({
   autoIcons: { baseIconPath: 'assets/icon.svg' },
   manifest: ({ browser }) => ({
     name: 'Scryfall Query Builder',
-    description: 'A form-driven query builder, a query explainer and set-name autocomplete on scryfall.com.',
+    description: 'A form-driven query builder and set-name autocomplete on scryfall.com.',
     permissions: ['storage'],
     // scryfall.com carries the content script; api.scryfall.com is fetched by
     // the background worker for the set list (see src/background/sets.ts).

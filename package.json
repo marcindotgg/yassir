@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Advanced search builder for scryfall.com: a form-driven query builder, a query explainer and set-name autocomplete",
+  "description": "Advanced search builder for scryfall.com: a form-driven query builder and set-name autocomplete",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox --mv3",

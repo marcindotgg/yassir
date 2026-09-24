@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findSet, normalize, parseSets, searchSets, setMeta, setNameIndex, type SetSummary } from '../../src/lib/sets';
+import { findSet, normalize, parseSets, searchSets, setMeta, type SetSummary } from '../../src/lib/sets';
 
 const set = (over: Partial<SetSummary>): SetSummary => ({
   code: 'xxx',
@@ -81,8 +81,7 @@ describe('set search', () => {
 });
 
 describe('set helpers', () => {
-  it('indexes and formats sets', () => {
-    expect(setNameIndex(SETS).get('mh3')).toBe('Modern Horizons 3');
+  it('finds and formats sets', () => {
     expect(findSet(SETS, ' MH2 ')?.name).toBe('Modern Horizons 2');
     expect(findSet(SETS, 'nope')).toBeUndefined();
     expect(setMeta(SETS[0] as SetSummary)).toBe('2024 · 303 cards');
