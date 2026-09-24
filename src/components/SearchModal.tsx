@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { EMPTY_QUERY, type QueryState } from '../lib/scryfall-syntax';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { readQuery, removeCondition, writeQuery, type Condition } from '../lib/query-sync';
+import type { QueryState } from '../lib/scryfall-syntax';
 import { backgroundBehind } from '../ui/theme';
-import { QueryBuilder, type ApplyMode } from './QueryBuilder';
+import { QueryBuilder } from './QueryBuilder';
 import { useSets } from './useSets';
 
 export interface SearchModalProps {
@@ -159,13 +160,14 @@ function lockScroll(): () => void {
  * Focusing Scryfall's search box opens this sheet with a copy of the box on top,
  * pixel for pixel where the original sits, holding the same text and caret — so
  * it reads as the same input growing a panel, not a dialog. Below it, the query
- * builder can write into it.
+ * builder reads the query and edits it in place: the query is the one source of
+ * truth, so the form comes back filled in after a reload.
  */
 export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [closing, setClosing] = useState(false);
   const [value, setValue] = useState('');
-  const [builder, setBuilder] = useState<QueryState>(EMPTY_QUERY);
+  const reading = useMemo(() => readQuery(value), [value]);
   const sets = useSets();
   const mirrorRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(false);
@@ -301,16 +303,17 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     '--sqb-box-width': `${layout.inputWidth}px`,
   };
 
-  const apply = (query: string, mode: ApplyMode) => {
-    const next = mode === 'append' && value.trim() ? `${value.trimEnd()} ${query}` : query;
-    sync(next);
-    if (mode === 'search') {
-      submit();
-      return;
-    }
-    const mirror = mirrorRef.current;
-    mirror?.focus();
-    mirror?.setSelectionRange(next.length, next.length);
+  // Edits start from Scryfall's box: sync keeps it current, even between renders.
+  const edit = (update: (state: QueryState) => QueryState) => sync(writeQuery(input.value, update(readQuery(input.value).state)));
+  /** The button that had focus is gone with its pin: give focus back to the query, not to Scryfall's shortcuts. */
+  const refocus = () => mirrorRef.current?.focus();
+  const remove = (condition: Condition) => {
+    sync(removeCondition(input.value, condition));
+    refocus();
+  };
+  const clear = () => {
+    sync('');
+    refocus();
   };
 
   const onMirrorKeyDown = (e: KeyboardEvent) => {
@@ -380,7 +383,16 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
 
         <div class="sqb-sheet-body">
           <section class="sqb-stack">
-            <QueryBuilder state={builder} onChange={setBuilder} sets={sets} onApply={apply} />
+            <QueryBuilder
+              query={value}
+              state={reading.state}
+              onChange={edit}
+              extras={reading.extras}
+              onRemove={remove}
+              onClear={clear}
+              onSearch={submit}
+              sets={sets}
+            />
           </section>
         </div>
       </div>

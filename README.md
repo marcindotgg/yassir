@@ -24,9 +24,19 @@ backend other than Scryfall's public API.
 - **Query builder** — name, rules text,
   type, colors (a Select2-style multiselect of single colors, colorless and
   named combinations like Izzet or Jund, always `c<=`), mana value, rarity, sets,
-  format, max price, power/toughness, artist, year, `is:` flags and sorting,
-  with a live preview of the query it produces. *Replace search* or *Add to
-  search* writes it into the box; *Search* runs it.
+  format, max price, power/toughness, artist, year, `is:` flags and sorting.
+  The query in the box is the only source of truth and the form is a two-way
+  view of it: type `t:elf` and the Type field says *elf*; change a field and
+  just that field's terms are rewritten in place, the rest of the query keeps
+  its text and order. So the form also comes back filled in after a reload or
+  on a results page. Presets set their own fields and leave the rest alone;
+  *Clear* empties the query; *Search* runs it.
+- **Other conditions** — whatever the query asks that no field can show
+  (`kw:flying`, `-t:creature`, `otag:removal`, an OR group…) gets a pin
+  under the form, named from a dictionary of Scryfall's keywords
+  ("Keyword: flying", "not Type: creature", "Fetch land"), with a button that
+  takes exactly that condition out of the query. A keyword Scryfall doesn't
+  know gets a dashed red pin: Scryfall would ignore it.
 - **Set autocomplete** — type a set name or code and pick from a ranked list
   (set symbol, name, code, year, card count). Pick several and they become
   `(s:mh3 or s:ltr)`. The list comes from `https://api.scryfall.com/sets`,
@@ -40,7 +50,8 @@ entrypoints/        background.ts (set list + cache), scryfall.content.tsx
 src/background/     the Scryfall /sets fetch, its cache and TTL
 src/content/        selectors for both search boxes, mounting the modal
 src/components/     Preact: SearchModal, QueryBuilder, SetAutocomplete, useSets
-src/lib/            pure helpers: query build, set parsing + search
+src/lib/            pure helpers: query parsing, form <-> query sync, the keyword
+                    dictionary behind the pins, set parsing + search
 src/ui/             shadow-root mounting, theme detection, styles + tokens
 tests/unit/         vitest + happy-dom
 tests/e2e/smoke.mjs Playwright run against live scryfall.com

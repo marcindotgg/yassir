@@ -1,4 +1,5 @@
-// Pure helpers behind the query builder: state -> query string. No DOM, unit-tested.
+// Pure helpers behind the query builder: the form's state and the terms each of
+// its fields writes into the query. No DOM, unit-tested.
 
 export interface QueryState {
   name: string;
@@ -121,50 +122,53 @@ const quote = (value: string): string => {
   return /[\s"':()]/.test(v) ? `"${v.replace(/"/g, '\\"')}"` : v;
 };
 
-/** Builds a Scryfall query from the form state. Returns '' when nothing is set. */
-export function buildQuery(state: QueryState): string {
-  const parts: string[] = [];
+/** A word of the rules text or type field; `/…/` goes in as a regex, not quoted. */
+const textTerm = (key: string, word: string): string => (/^\/.+\/$/.test(word) ? `${key}:${word}` : `${key}:${quote(word)}`);
 
-  const name = state.name.trim();
-  if (name) parts.push(/\s/.test(name) ? `name:${quote(name)}` : name);
+/** A lone word goes into the query bare, the way people type it; anything the parser would take for syntax gets `name:"…"`. */
+const BARE_NAME = /^[^\s"():<>=!\/-][^\s"():<>=!]*$/;
 
-  for (const word of splitTerms(state.text)) parts.push(`o:${quote(word)}`);
-  for (const word of splitTerms(state.type)) parts.push(`t:${quote(word)}`);
+const NUMBER = /^\d+(\.\d+)?$/;
 
-  if (state.colorless) parts.push('c:c');
-  else {
-    const letters = COLORS.filter((c) => state.colors.includes(c)).join('').toLowerCase();
-    if (letters) parts.push(`c<=${letters}`);
+/** The form's fields, in the order buildQuery lays them out. */
+export const FIELDS = ['name', 'text', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'year', 'flags', 'order', 'direction'] as const;
+export type FieldId = (typeof FIELDS)[number];
+
+/**
+ * The terms each field writes, one per condition the query holds on its own
+ * (every `o:` word, every `is:` flag), so the box can be edited term by term.
+ */
+export const FIELD_TERMS: Record<FieldId, (state: QueryState) => string[]> = {
+  name: (s) => {
+    const name = s.name.trim();
+    if (!name) return [];
+    return [BARE_NAME.test(name) && !/^(or|and)$/i.test(name) ? name : `name:${quote(name)}`];
+  },
+  text: (s) => splitTerms(s.text).map((word) => textTerm('o', word)),
+  type: (s) => splitTerms(s.type).map((word) => textTerm('t', word)),
+  colors: (s) => {
+    if (s.colorless) return ['c:c'];
+    const letters = COLORS.filter((c) => s.colors.includes(c)).join('').toLowerCase();
     // Any of the picked combinations: `(c=orzhov or c=izzet)`.
-    parts.push(...orGroup(state.colorCombos.map((name) => `c=${name}`)));
-  }
+    return [...(letters ? [`c<=${letters}`] : []), ...orGroup(s.colorCombos.map((name) => `c=${name}`))];
+  },
+  manaValue: (s) => (NUMBER.test(s.manaValue.trim()) ? [`mv${s.manaValueOp}${s.manaValue.trim()}`] : []),
+  rarity: (s) => orGroup(s.rarity.map((r) => `r:${r}`)),
+  sets: (s) => orGroup(s.sets.map((code) => `s:${code.trim().toLowerCase()}`)),
+  format: (s) => (s.format ? [`f:${s.format}`] : []),
+  price: (s) => (NUMBER.test(s.priceMax.trim()) ? [`${s.priceCurrency}<=${s.priceMax.trim()}`] : []),
+  power: (s) => compare('pow', s.power),
+  toughness: (s) => compare('tou', s.toughness),
+  artist: (s) => (s.artist.trim() ? [`a:${quote(s.artist)}`] : []),
+  year: (s) => compare('year', s.year),
+  flags: (s) => s.flags.map((flag) => `is:${flag}`),
+  order: (s) => (s.order ? [`order:${s.order}`] : []),
+  direction: (s) => (s.direction !== 'auto' ? [`direction:${s.direction}`] : []),
+};
 
-  if (state.manaValue.trim() !== '' && /^\d+(\.\d+)?$/.test(state.manaValue.trim())) {
-    parts.push(`mv${state.manaValueOp}${state.manaValue.trim()}`);
-  }
-
-  parts.push(...orGroup(state.rarity.map((r) => `r:${r}`)));
-  parts.push(...orGroup(state.sets.map((s) => `s:${s.trim().toLowerCase()}`)));
-
-  if (state.format) parts.push(`f:${state.format}`);
-
-  if (state.priceMax.trim() && /^\d+(\.\d+)?$/.test(state.priceMax.trim())) {
-    parts.push(`${state.priceCurrency}<=${state.priceMax.trim()}`);
-  }
-
-  if (state.power.trim()) parts.push(`pow${normalizeCompare(state.power)}`);
-  if (state.toughness.trim()) parts.push(`tou${normalizeCompare(state.toughness)}`);
-  if (state.artist.trim()) parts.push(`a:${quote(state.artist)}`);
-  if (state.year.trim()) parts.push(`year${normalizeCompare(state.year)}`);
-
-  for (const flag of state.flags) parts.push(`is:${flag}`);
-
-  if (state.order) {
-    parts.push(`order:${state.order}`);
-    if (state.direction !== 'auto') parts.push(`direction:${state.direction}`);
-  }
-
-  return parts.join(' ');
+/** Builds a Scryfall query from the whole form. Returns '' when nothing is set. */
+export function buildQuery(state: QueryState): string {
+  return FIELDS.flatMap((field) => FIELD_TERMS[field](state)).join(' ');
 }
 
 export type ColorSelection = Pick<QueryState, 'colors' | 'colorless' | 'colorCombos'>;
@@ -197,14 +201,13 @@ function orGroup(terms: string[]): string[] {
   return [`(${terms.join(' or ')})`];
 }
 
-// "3", ">=3", "<2" -> "=3", ">=3", "<2"
-function normalizeCompare(raw: string): string {
-  const v = raw.trim();
-  const m = v.match(/^(<=|>=|=|<|>|!=)?\s*(.+)$/);
-  if (!m) return `=${v}`;
-  return `${m[1] ?? '='}${m[2]}`;
+// "3", ">=3", "<2" -> "pow=3", "pow>=3", "pow<2"; a lone operator, still being typed, writes nothing.
+function compare(key: string, raw: string): string[] {
+  const m = raw.trim().match(/^(<=|>=|!=|=|<|>)?\s*(.*)$/);
+  return m?.[2] ? [`${key}${m[1] ?? '='}${m[2]}`] : [];
 }
 
+/** `draw "a card"` -> ['draw', 'a card']. */
 function splitTerms(raw: string): string[] {
   const out: string[] = [];
   const re = /"([^"]+)"|(\S+)/g;

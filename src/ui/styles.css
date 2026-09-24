@@ -393,14 +393,37 @@
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px;
 }
-.sqb-qb-preview {
-  font-family: var(--sqb-mono);
-  font-size: 13px;
+/* Conditions in the query that no field shows. Always there, so pins coming and
+   going while the query is typed don't shift the form above. */
+.sqb-pins {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 6px;
   background: var(--sqb-bg-muted);
   border-radius: var(--sqb-radius-sm);
-  padding: 8px 10px;
-  word-break: break-word;
-  min-height: 34px;
+}
+.sqb-pins > .sqb-muted {
+  padding: 0 4px;
+  font-size: 12px;
+}
+.sqb-pin {
+  max-width: 100%;
+  background: var(--sqb-bg);
+  border: 1px solid var(--sqb-border);
+}
+.sqb-pin-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A keyword Scryfall doesn't know: it will ignore the condition. */
+.sqb-pin-unknown {
+  border-style: dashed;
+  border-color: var(--sqb-danger);
 }
 
 /* --- colors multiselect -------------------------------------------------- */
