@@ -57,6 +57,8 @@ const fieldValue = (label) =>
   }, label);
 const colorChips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));
 const pinTexts = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin')].map((c) => c.querySelector('.sqb-pin-text').textContent));
+/** The "Other conditions" section: null when it isn't there, else its classes. */
+const pinSection = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal')?.className ?? null);
 
 await step('mounts on the homepage', async () => {
   await page.goto('https://scryfall.com/', { waitUntil: 'domcontentloaded' });
@@ -190,13 +192,16 @@ await step('removing a set chip takes it out of the query', async () => {
   return mirrorValue();
 });
 
-await step('a condition the form has no field for gets a named pin that removes it', async () => {
+await step('a condition the form has no field for opens a section with a named pin that removes it', async () => {
+  if ((await pinSection()) !== null) throw new Error('the section is there with nothing to pin');
   await page.locator('.sqb-mirror').click();
   await page.keyboard.press('End');
   await page.keyboard.type(' kw:flying -is:reprint');
   await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin').length === 2, null, { timeout: 5000 });
   const pins = await pinTexts();
   if (pins.join('|') !== 'Keyword: flying|not Reprint') throw new Error(`pins: ${pins}`);
+  const section = await pinSection();
+  if (!section.includes('sqb-reveal-enter')) throw new Error(`typed in, the section should open up: ${section}`);
   await page.screenshot({ path: path.join(OUT, 'pins.png') });
   await page.locator('.sqb-pin', { hasText: 'Keyword: flying' }).locator('.sqb-chip-remove').click();
   await waitQuery('^t:instant s:mh3 -is:reprint$');
@@ -207,7 +212,35 @@ await step('a condition the form has no field for gets a named pin that removes 
   if (!focused) throw new Error('focus did not go back to the query');
   await page.locator('.sqb-pin', { hasText: 'not Reprint' }).locator('.sqb-chip-remove').click();
   await waitQuery('^t:instant s:mh3$');
-  return `pins: ${pins.join(', ')}; both removed`;
+  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'), null, { timeout: 2000 });
+  return `pins: ${pins.join(', ')}; both removed, section folded away`;
+});
+
+await step('retyping the only condition updates its pin in place, once typing pauses', async () => {
+  await page.locator('.sqb-mirror').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' kw:flying');
+  await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin'), null, { timeout: 5000 });
+  // Tag the section and the pin: a re-mounted one wouldn't carry the tag.
+  await inPage(() => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    root.querySelector('.sqb-reveal').sqbProbe = true;
+    root.querySelector('.sqb-pin').sqbProbe = true;
+  });
+  for (let i = 0; i < 'flying'.length; i++) await page.keyboard.press('Backspace');
+  await page.keyboard.type('haste');
+  const early = await pinTexts();
+  if (early.join('|') !== 'Keyword: flying') throw new Error(`pins changed while still typing: ${early}`);
+  await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin-text')?.textContent === 'Keyword: haste', null, { timeout: 5000 });
+  const kept = await inPage(() => {
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    return { section: root.querySelector('.sqb-reveal')?.sqbProbe === true, pin: root.querySelector('.sqb-pin')?.sqbProbe === true };
+  });
+  if (!kept.section || !kept.pin) throw new Error(`re-mounted: ${JSON.stringify(kept)}`);
+  await page.locator('.sqb-pin').locator('.sqb-chip-remove').click();
+  await waitQuery('^t:instant s:mh3$');
+  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'), null, { timeout: 2000 });
+  return 'flying → haste in the same pin, section never folded';
 });
 
 await step('typing into a field keeps its spaces and operators while the query follows', async () => {
@@ -292,6 +325,9 @@ await step('Escape closes it and gives focus back to the real box', async () => 
 await step('Enter in the modal runs the search', async () => {
   await page.click('input#q');
   await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  // Something for a pin, so the results page opens with one.
+  await page.keyboard.press('End');
+  await page.keyboard.type(' kw:haste');
   await Promise.all([page.waitForURL(/\/search\?/, { timeout: 15000 }), page.keyboard.press('Enter')]);
   const q = new URL(page.url()).searchParams.get('q');
   if (!q?.includes('c<=r')) throw new Error(`searched for ${q}`);
@@ -332,9 +368,11 @@ await step('on /search the header box opens it, unfolding downwards', async () =
 });
 
 await step('after the page loads anew, the form reads the query it was left with', async () => {
-  const [type, colors] = await Promise.all([fieldValue('Type'), colorChips()]);
-  if (type !== 'instant' || colors.join('|') !== 'Red') throw new Error(JSON.stringify({ type, colors }));
-  return `Type = ${type}, Colors = ${colors.join(', ')}`;
+  // Read straight away: a condition the query already has is pinned from the start, not after a pause.
+  const [type, colors, pins, section] = await Promise.all([fieldValue('Type'), colorChips(), pinTexts(), pinSection()]);
+  if (type !== 'instant' || colors.join('|') !== 'Red' || pins.join('|') !== 'Keyword: haste') throw new Error(JSON.stringify({ type, colors, pins }));
+  if (section !== 'sqb-reveal') throw new Error(`there from the start, the section should come with the sheet: ${section}`);
+  return `Type = ${type}, Colors = ${colors.join(', ')}, pinned: ${pins.join(', ')}`;
 });
 
 await step('Escape on /search hands focus back to the header box', async () => {

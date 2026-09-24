@@ -191,11 +191,13 @@ describe('writing the form into the query', () => {
 describe('removing a pinned condition', () => {
   it('takes the condition and its separator out', () => {
     const q = 't:elf kw:flying and -is:reprint foo:bar';
-    const at = (text: string) => readQuery(q).conditions.find((c) => c.text === text) as { start: number; end: number };
+    const at = (text: string) => readQuery(q).conditions.find((c) => c.text === text) as { start: number; end: number; text: string };
     expect(removeCondition(q, at('kw:flying'))).toBe('t:elf and -is:reprint foo:bar');
     expect(removeCondition(q, at('foo:bar'))).toBe('t:elf kw:flying and -is:reprint');
     expect(removeCondition(q, at('t:elf'))).toBe('kw:flying and -is:reprint foo:bar');
-    expect(removeCondition('t:elf', { start: 0, end: 99 })).toBe('t:elf');
+    expect(removeCondition('t:elf', { start: 0, end: 99, text: 'kw:flying' })).toBe('t:elf');
+    // Read before more was typed in front of it: still found, by its text.
+    expect(removeCondition(`t:elf ${q}`, at('foo:bar'))).toBe('t:elf t:elf kw:flying and -is:reprint');
   });
 });
 

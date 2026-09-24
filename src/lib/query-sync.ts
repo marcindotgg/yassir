@@ -272,10 +272,16 @@ export function writeQuery(query: string, next: QueryState): string {
   return assemble(query, reading.conditions, replace, after);
 }
 
-/** Takes one top-level condition out of the query, with the space or connector that tied it to its neighbour. */
-export function removeCondition(query: string, condition: Pick<Condition, 'start' | 'end'>): string {
+/**
+ * Takes one top-level condition out of the query, with the space or connector
+ * that tied it to its neighbour. Found where it was read; if the query has been
+ * typed into since and it moved, found by its text; if it's gone, nothing changes.
+ */
+export function removeCondition(query: string, condition: Pick<Condition, 'start' | 'end' | 'text'>): string {
   const { conditions } = readQuery(query);
-  const target = conditions.find((c) => c.start === condition.start && c.end === condition.end);
+  const target =
+    conditions.find((c) => c.start === condition.start && c.end === condition.end && c.text === condition.text) ??
+    conditions.find((c) => c.text === condition.text);
   return target ? assemble(query, conditions, new Map([[target, null]]), new Map()) : query;
 }
 

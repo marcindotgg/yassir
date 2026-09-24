@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
-import { describe } from '../lib/query-dictionary';
+import { useRef, useState } from 'preact/hooks';
 import type { Condition } from '../lib/query-sync';
 import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, type FieldId, type QueryState } from '../lib/scryfall-syntax';
 import { ColorSelect } from './ColorSelect';
+import { ConditionPins } from './ConditionPins';
 import { SetAutocomplete } from './SetAutocomplete';
 import type { useSets } from './useSets';
 
@@ -17,6 +17,8 @@ export interface QueryBuilderProps {
   onChange: Update;
   /** Conditions in the query that no field can show. */
   extras: readonly Condition[];
+  /** The query last changed by being typed into the box. */
+  typing: boolean;
   onRemove: (condition: Condition) => void;
   onClear: () => void;
   onSearch: () => void;
@@ -125,14 +127,11 @@ function PriceField({ state, onChange }: { state: QueryState; onChange: Update }
 /**
  * The form over Scryfall's query syntax. It holds no state of its own: every
  * field shows what the query in the box says and writes straight back into it,
- * and whatever the query asks that no field can show is pinned below the form,
- * named, with a button to take it out.
+ * and whatever the query asks that no field can show is pinned below the form.
  */
 export function QueryBuilder(props: QueryBuilderProps) {
   const { state, sets } = props;
   const set = <K extends keyof QueryState>(key: K, value: QueryState[K]) => props.onChange((s) => ({ ...s, [key]: value }));
-  const setNames = useMemo(() => new Map(sets.sets.map((s) => [s.code, s.name])), [sets.sets]);
-  const pins = props.extras.map((c) => ({ condition: c, ...describe(c.node, { set: (code) => setNames.get(code) }) }));
   const field = { state, onChange: props.onChange };
 
   return (
@@ -224,24 +223,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
         </div>
       </div>
 
-      <div class="sqb-field">
-        <span class="sqb-label">Other conditions</span>
-        <div class="sqb-pins">
-          {pins.length === 0 && <span class="sqb-muted">Anything in the query the form has no field for shows up here.</span>}
-          {pins.map((pin) => (
-            <span
-              key={`${pin.condition.start}:${pin.condition.text}`}
-              class={`sqb-chip sqb-pin ${pin.known ? '' : 'sqb-pin-unknown'}`}
-              title={pin.known ? pin.condition.text : `${pin.condition.text} — Scryfall doesn't know this keyword and will ignore it`}
-            >
-              <span class="sqb-pin-text">{pin.text}</span>
-              <button type="button" class="sqb-chip-remove" aria-label={`Remove ${pin.text}`} onClick={() => props.onRemove(pin.condition)}>
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      </div>
+      <ConditionPins extras={props.extras} typing={props.typing} sets={sets.sets} onRemove={props.onRemove} />
 
       <div class="sqb-row">
         <button type="button" class="sqb-btn sqb-btn-primary" disabled={!props.query.trim()} onClick={props.onSearch}>

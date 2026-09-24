@@ -167,6 +167,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [closing, setClosing] = useState(false);
   const [value, setValue] = useState('');
+  /** Whether the query last changed by being typed into, rather than from the builder. */
+  const [typing, setTyping] = useState(false);
   const reading = useMemo(() => readQuery(value), [value]);
   const sets = useSets();
   const mirrorRef = useRef<HTMLInputElement>(null);
@@ -180,8 +182,9 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   };
 
   /** Writes into Scryfall's box. No input event while open: nothing should react behind the sheet. */
-  const sync = (next: string) => {
+  const sync = (next: string, typed = false) => {
     setValue(next);
+    setTyping(typed);
     input.value = next;
   };
 
@@ -237,6 +240,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       input.blur();
       unhide.current = hideAll([input, ...covered]);
       setValue(input.value);
+      setTyping(false);
       setSession(next);
     };
     // A click on the box it already has focus (e.g. after Escape) opens it too.
@@ -245,7 +249,10 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     };
     // Autofill and the like can still write to the box while it is covered.
     const onInput = () => {
-      if (openRef.current && input.value !== mirrorRef.current?.value) setValue(input.value);
+      if (openRef.current && input.value !== mirrorRef.current?.value) {
+        setValue(input.value);
+        setTyping(true);
+      }
     };
     // Coming back through the bfcache after a search: don't restore an open sheet.
     const onPageShow = (e: PageTransitionEvent) => {
@@ -364,7 +371,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
               maxLength={input.maxLength > 0 ? input.maxLength : 1024}
               placeholder={session.placeholder}
               value={value}
-              onInput={(e) => sync((e.target as HTMLInputElement).value)}
+              onInput={(e) => sync((e.target as HTMLInputElement).value, true)}
               onKeyDown={onMirrorKeyDown}
               style={{ ...session.style, height: `${layout.inputHeight}px` }}
             />
@@ -388,6 +395,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
               state={reading.state}
               onChange={edit}
               extras={reading.extras}
+              typing={typing}
               onRemove={remove}
               onClear={clear}
               onSearch={submit}

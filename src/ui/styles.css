@@ -393,26 +393,58 @@
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px;
 }
-/* Conditions in the query that no field shows. Always there, so pins coming and
-   going while the query is typed don't shift the form above. */
+/*
+ * Conditions in the query that no field shows. The section is there only while
+ * it has pins: typed in later, it opens up by its own height (a 0fr -> 1fr grid
+ * row, with the flex gap above it taken back) rather than pushing in at full
+ * size, and folds away the same way when its last pin goes. Present when the
+ * sheet opens, it just rises in with the rest (see .sqb-qb > *).
+ */
+.sqb-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.sqb-reveal > * {
+  min-height: 0;
+}
+.sqb-reveal-enter > *,
+.sqb-reveal-exit > * {
+  overflow: hidden;
+}
+.sqb-qb > .sqb-reveal-enter {
+  animation: sqb-reveal 0.28s var(--sqb-out) both;
+}
+.sqb-qb > .sqb-reveal-exit {
+  animation: sqb-reveal 0.18s var(--sqb-in) reverse both;
+  pointer-events: none;
+}
+@keyframes sqb-reveal {
+  from {
+    grid-template-rows: 0fr;
+    margin-top: -8px; /* .sqb-stack's gap */
+    opacity: 0;
+  }
+}
 .sqb-pins {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  min-height: 34px;
   padding: 5px 6px;
   background: var(--sqb-bg-muted);
   border-radius: var(--sqb-radius-sm);
-}
-.sqb-pins > .sqb-muted {
-  padding: 0 4px;
-  font-size: 12px;
 }
 .sqb-pin {
   max-width: 100%;
   background: var(--sqb-bg);
   border: 1px solid var(--sqb-border);
+  animation: sqb-pin-in 0.2s var(--sqb-out) both;
+}
+@keyframes sqb-pin-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
 }
 .sqb-pin-text {
   min-width: 0;
