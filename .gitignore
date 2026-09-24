@@ -3,3 +3,4 @@ dist
 .wxt
 stats.html
 tests/e2e/.state
+dev_docs
