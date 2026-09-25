@@ -27,14 +27,6 @@ export interface QueryBuilderProps {
   sets: ReturnType<typeof useSets>;
 }
 
-/** Laid over the query: they set their own fields and leave the rest of it be. */
-const PRESETS: { label: string; state: Partial<QueryState> }[] = [
-  { label: 'Standard-legal under €1', state: { format: 'standard', priceMax: '1', priceCurrency: 'eur', order: 'eur', direction: 'asc' } },
-  { label: 'Cheap Commander staples', state: { format: 'commander', priceMax: '2', priceCurrency: 'eur', order: 'edhrec' } },
-  { label: 'Mythic rares this year', state: { rarity: ['mythic'], year: `>=${new Date().getFullYear()}`, order: 'released', direction: 'desc' } },
-  { label: 'Red instants', state: { colors: ['R'], colorless: false, colorCombos: [], type: 'instant' } },
-];
-
 const toggle = <T,>(list: T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
 /** What `field` writes into the query when set to `patch`. */
@@ -138,14 +130,6 @@ export function QueryBuilder(props: QueryBuilderProps) {
 
   return (
     <div class="sqb-stack sqb-qb">
-      <div class="sqb-wrap">
-        {PRESETS.map((p) => (
-          <button key={p.label} type="button" class="sqb-btn sqb-btn-sm" onClick={() => props.onChange((s) => ({ ...s, ...p.state }))}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
       <div class="sqb-qb-cols">
         {/* What's printed on the card, top to bottom. */}
         <div class="sqb-qb-col">
