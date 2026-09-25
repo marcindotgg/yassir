@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { splitLastWord, suggestTypes } from '../lib/type-suggestions';
+import { splitLastWord, suggestFrom, type TypeGroup } from '../lib/type-suggestions';
 import { useDropdownPlacement } from './useDropdownPlacement';
 
 const LIST_HEIGHT = 260;
@@ -17,20 +17,27 @@ function Highlighted({ name, word }: { name: string; word: string }) {
 }
 
 /**
- * The card-type text field with a dropdown of suggestions for the word being
- * typed. Picking one goes through a real `input` event, so whatever listens to
- * the field sees it as typing.
+ * A text field with a dropdown of `suggestions` for the word being typed.
+ * Picking one goes through a real `input` event, so whatever listens to the
+ * field sees it as typing.
  */
-export function TypeCombobox(props: { value: string; placeholder: string; onInput: (value: string) => void }) {
+export function SuggestCombobox(props: {
+  value: string;
+  placeholder: string;
+  suggestions: readonly TypeGroup[];
+  /** A line under each suggestion that has one. */
+  descriptions?: ReadonlyMap<string, string>;
+  onInput: (value: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const listId = useRef(`sqb-types-${Math.random().toString(36).slice(2, 8)}`).current;
+  const listId = useRef(`sqb-suggest-${Math.random().toString(36).slice(2, 8)}`).current;
 
   const { head, word } = splitLastWord(props.value);
-  const groups = useMemo(() => suggestTypes(word), [word]);
+  const groups = useMemo(() => suggestFrom(props.suggestions, word), [props.suggestions, word]);
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   useEffect(() => setActive(-1), [word]);
@@ -125,8 +132,11 @@ export function TypeCombobox(props: { value: string; placeholder: string; onInpu
                           pick(name);
                         }}
                       >
-                        <span class="sqb-ac-name">
-                          <Highlighted name={name} word={word} />
+                        <span class="sqb-ac-text">
+                          <span class="sqb-ac-name">
+                            <Highlighted name={name} word={word} />
+                          </span>
+                          {props.descriptions?.has(name) && <span class="sqb-ac-desc">{props.descriptions.get(name)}</span>}
                         </span>
                       </button>
                     </li>

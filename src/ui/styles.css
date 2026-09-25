@@ -708,6 +708,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.sqb-ac-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.sqb-ac-desc {
+  font-size: 11px;
+  color: var(--sqb-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sqb-ac-code {
   font-family: var(--sqb-mono);
   font-size: 11px;

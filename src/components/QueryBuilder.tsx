@@ -1,10 +1,12 @@
 import { useRef, useState } from 'preact/hooks';
 import type { Condition } from '../lib/query-sync';
+import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../lib/tag-suggestions';
+import { TYPE_GROUPS, type TypeGroup } from '../lib/type-suggestions';
 import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, type FieldId, type QueryState } from '../lib/scryfall-syntax';
 import { ColorSelect } from './ColorSelect';
 import { ConditionPins } from './ConditionPins';
 import { SetAutocomplete } from './SetAutocomplete';
-import { TypeCombobox } from './TypeCombobox';
+import { SuggestCombobox } from './SuggestCombobox';
 import type { useSets } from './useSets';
 
 type Update = (update: (state: QueryState) => QueryState) => void;
@@ -72,17 +74,28 @@ function TextField(props: { field: TextFieldId; label: string; placeholder: stri
   );
 }
 
-function TypeField(props: { label: string; placeholder: string; state: QueryState; onChange: Update }) {
-  const [text, setText] = useDraft(props.state.type, (v) => writes('type', { type: v }));
+function SuggestField(props: {
+  field: 'type' | 'otag';
+  suggestions: readonly TypeGroup[];
+  descriptions?: ReadonlyMap<string, string>;
+  label: string;
+  placeholder: string;
+  state: QueryState;
+  onChange: Update;
+}) {
+  const { field } = props;
+  const [text, setText] = useDraft(props.state[field], (v) => writes(field, { [field]: v }));
   return (
     <div class="sqb-field">
       <span class="sqb-label">{props.label}</span>
-      <TypeCombobox
+      <SuggestCombobox
         value={text}
         placeholder={props.placeholder}
+        suggestions={props.suggestions}
+        descriptions={props.descriptions}
         onInput={(v) => {
           setText(v);
-          props.onChange((s) => ({ ...s, type: v }));
+          props.onChange((s) => ({ ...s, [field]: v }));
         }}
       />
     </div>
@@ -133,7 +146,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
             />
             <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
           </div>
-          <TypeField {...field} label="Type (t:)" placeholder="legendary creature" />
+          <SuggestField {...field} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="legendary creature" />
           <div class="sqb-field">
             <span class="sqb-label">Rarity</span>
             <div class="sqb-wrap">
@@ -175,7 +188,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
               ))}
             </select>
           </label>
-          <TextField {...field} field="otag" label="Oracle tag (otag:)" placeholder="removal" />
+          <SuggestField {...field} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="removal" />
           <TextField {...field} field="artist" label="Artist (a:)" placeholder="Seb McKinnon" />
           <div class="sqb-field">
             <span class="sqb-label">Sort</span>

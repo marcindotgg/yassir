@@ -28,9 +28,9 @@ export function splitLastWord(text: string): { head: string; word: string } {
 }
 
 /** Groups with the entries containing `word` (any case), minus an exact match; empty groups dropped. */
-export function suggestTypes(word: string): TypeGroup[] {
+export function suggestFrom(groups: readonly TypeGroup[], word: string): TypeGroup[] {
   const q = word.toLowerCase();
-  return TYPE_GROUPS.map((g) => ({
+  return groups.map((g) => ({
     label: g.label,
     items: g.items.filter((i) => {
       const l = i.toLowerCase();
