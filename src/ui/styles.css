@@ -497,6 +497,9 @@
   padding-top: 12px;
   border-top: 1px solid var(--sqb-border);
 }
+.sqb-flag {
+  text-transform: capitalize;
+}
 /* Clear, then Search, at the bottom right where the form ends. */
 .sqb-qb-actions {
   justify-content: flex-end;

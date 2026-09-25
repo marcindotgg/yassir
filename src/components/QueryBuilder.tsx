@@ -184,7 +184,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
         <span class="sqb-label">Flags (is:)</span>
         <div class="sqb-wrap">
           {FLAGS.map((f) => (
-            <button key={f} type="button" class={`sqb-btn sqb-btn-sm ${state.flags.includes(f) ? 'sqb-btn-active' : ''}`} onClick={() => set('flags', toggle(state.flags, f))}>
+            <button key={f} type="button" class={`sqb-btn sqb-btn-sm sqb-flag ${state.flags.includes(f) ? 'sqb-btn-active' : ''}`} onClick={() => set('flags', toggle(state.flags, f))}>
               {f}
             </button>
           ))}
