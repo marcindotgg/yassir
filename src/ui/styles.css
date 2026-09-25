@@ -746,3 +746,23 @@
   opacity: 1;
   color: var(--sqb-danger);
 }
+
+/* --- type combobox ------------------------------------------------------- */
+
+.sqb-ac-sub {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sqb-ac-group {
+  padding: 6px 7px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sqb-text-muted);
+}
+.sqb-ac-hit {
+  font-weight: 700;
+  color: var(--sqb-primary);
+}

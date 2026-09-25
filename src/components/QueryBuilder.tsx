@@ -4,6 +4,7 @@ import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, type FieldI
 import { ColorSelect } from './ColorSelect';
 import { ConditionPins } from './ConditionPins';
 import { SetAutocomplete } from './SetAutocomplete';
+import { TypeCombobox } from './TypeCombobox';
 import type { useSets } from './useSets';
 
 type Update = (update: (state: QueryState) => QueryState) => void;
@@ -71,6 +72,23 @@ function TextField(props: { field: TextFieldId; label: string; placeholder: stri
   );
 }
 
+function TypeField(props: { label: string; placeholder: string; state: QueryState; onChange: Update }) {
+  const [text, setText] = useDraft(props.state.type, (v) => writes('type', { type: v }));
+  return (
+    <div class="sqb-field">
+      <span class="sqb-label">{props.label}</span>
+      <TypeCombobox
+        value={text}
+        placeholder={props.placeholder}
+        onInput={(v) => {
+          setText(v);
+          props.onChange((s) => ({ ...s, type: v }));
+        }}
+      />
+    </div>
+  );
+}
+
 function PriceField({ state, onChange }: { state: QueryState; onChange: Update }) {
   const [price, setPrice] = useDraft({ priceCurrency: state.priceCurrency, priceMax: state.priceMax }, (v) => writes('price', v));
   const edit = (patch: Partial<typeof price>) => {
@@ -115,7 +133,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
             />
             <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
           </div>
-          <TextField {...field} field="type" label="Type (t:)" placeholder="legendary creature" />
+          <TypeField {...field} label="Type (t:)" placeholder="legendary creature" />
           <div class="sqb-field">
             <span class="sqb-label">Rarity</span>
             <div class="sqb-wrap">
