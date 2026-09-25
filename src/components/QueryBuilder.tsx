@@ -113,7 +113,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
               value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
               onChange={(next) => props.onChange((s) => ({ ...s, ...next }))}
             />
-            <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="np. 3, <=2, >=4" />
+            <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
           </div>
           <TextField {...field} field="type" label="Type (t:)" placeholder="legendary creature" />
           <div class="sqb-field">
@@ -137,15 +137,15 @@ export function QueryBuilder(props: QueryBuilderProps) {
           />
           <TextField {...field} field="text" label="Rules text (o:)" placeholder='draw "a card"' />
           <div class="sqb-qb-pair">
-            <TextField {...field} field="power" label="Power (pow)" placeholder="np. 3, >=4, >tou" />
-            <TextField {...field} field="toughness" label="Toughness (tou)" placeholder="np. 3, <=2, >pow" />
+            <TextField {...field} field="power" label="Power (pow)" placeholder="e.g. 3, >=4, >tou" />
+            <TextField {...field} field="toughness" label="Toughness (tou)" placeholder="e.g. 3, <=2, >pow" />
           </div>
         </div>
 
         {/* Everything the card itself doesn't show. */}
         <div class="sqb-qb-col sqb-qb-col-aside">
           <PriceField {...field} />
-          <TextField {...field} field="year" label="Year" placeholder="np. 2020, >=2020" />
+          <TextField {...field} field="year" label="Year" placeholder="e.g. 2020, >=2020" />
           <label class="sqb-field">
             <span class="sqb-label">Format (f:)</span>
             <select class="sqb-select" value={state.format} onChange={(e) => set('format', (e.target as HTMLSelectElement).value)}>
