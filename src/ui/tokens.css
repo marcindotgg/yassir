@@ -18,6 +18,11 @@
   --sqb-primary-soft: #e0e7ff;
   --sqb-primary-contrast: #ffffff;
 
+  /* Clear / Search: Scryfall violet instead of the generic indigo. */
+  --sqb-action: #5c4a8a;
+  --sqb-action-strong: #493a70;
+  --sqb-action-contrast: #ffffff;
+
   --sqb-danger: #dc2626;
   --sqb-ok: #15803d;
   /* Scryfall's set symbols are near-black SVGs; dark themes flip them. */
@@ -38,6 +43,9 @@
     --sqb-primary-strong: #c7d2fe;
     --sqb-primary-soft: #312e81;
     --sqb-primary-contrast: #1e1b4b;
+    --sqb-action: #b9a8e8;
+    --sqb-action-strong: #d3c7f2;
+    --sqb-action-contrast: #1f1836;
     --sqb-ok: #4ade80;
     --sqb-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
     --sqb-icon-filter: invert(1);
@@ -54,6 +62,9 @@
   --sqb-primary-strong: #c7d2fe;
   --sqb-primary-soft: #312e81;
   --sqb-primary-contrast: #1e1b4b;
+  --sqb-action: #b9a8e8;
+  --sqb-action-strong: #d3c7f2;
+  --sqb-action-contrast: #1f1836;
   --sqb-ok: #4ade80;
   --sqb-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   --sqb-icon-filter: invert(1);

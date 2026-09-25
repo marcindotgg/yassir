@@ -91,18 +91,22 @@
   cursor: default;
 }
 .sqb-btn-primary {
-  background: var(--sqb-primary);
-  border-color: var(--sqb-primary);
-  color: var(--sqb-primary-contrast);
+  background: var(--sqb-action);
+  border-color: var(--sqb-action);
+  color: var(--sqb-action-contrast);
 }
 .sqb-btn-primary:hover {
-  background: var(--sqb-primary-strong);
-  border-color: var(--sqb-primary-strong);
+  background: var(--sqb-action-strong);
+  border-color: var(--sqb-action-strong);
 }
 .sqb-btn-ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--sqb-primary);
+  color: var(--sqb-action);
+}
+.sqb-btn-ghost:hover:not(:disabled) {
+  color: var(--sqb-action-strong);
+  border-color: var(--sqb-action);
 }
 .sqb-btn-sm {
   padding: 2px 8px;
@@ -118,8 +122,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--sqb-primary-strong);
-  border-color: var(--sqb-primary-strong);
+  background: var(--sqb-action-strong);
+  border-color: var(--sqb-action-strong);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
   transform: translateY(1px);
   cursor: progress;
