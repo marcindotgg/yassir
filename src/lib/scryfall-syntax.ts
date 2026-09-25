@@ -112,7 +112,7 @@ export const COLOR_COMBO_GROUPS: readonly { label: string; combos: readonly Colo
   },
 ];
 
-export const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const;
+export const RARITIES = ['common', 'uncommon', 'rare', 'mythic', 'special'] as const;
 export const FORMATS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper', 'brawl', 'alchemy', 'historic'] as const;
 export const FLAGS = ['foil', 'nonfoil', 'promo', 'reprint', 'firstprint', 'digital', 'fullart', 'showcase', 'extended', 'borderless', 'commander', 'reserved'] as const;
 export const ORDERS = ['name', 'set', 'released', 'rarity', 'color', 'usd', 'eur', 'cmc', 'power', 'toughness', 'edhrec', 'artist'] as const;

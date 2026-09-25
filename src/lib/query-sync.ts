@@ -73,7 +73,7 @@ const add = (field: string, more: string): string => (field ? `${field} ${more}`
 const compareText = (t: Term): string => (t.op === '=' || t.op === ':' ? t.value : `${t.op}${t.value}`);
 
 const COMBOS = new Map(COLOR_COMBO_GROUPS.flatMap((g) => g.combos.map((c): [string, string] => [c.name, c.colors])));
-const RARITY_SHORT: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic' };
+const RARITY_SHORT: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic', s: 'special' };
 
 /** `ur`, `izzet` -> ['U', 'R'], in WUBRG order; null for anything else. */
 function colorLetters(value: string): string[] | null {

@@ -120,8 +120,9 @@ export function QueryBuilder(props: QueryBuilderProps) {
             <span class="sqb-label">Rarity</span>
             <div class="sqb-wrap">
               {RARITIES.map((r) => (
-                <button key={r} type="button" class={`sqb-btn sqb-btn-sm ${state.rarity.includes(r) ? 'sqb-btn-active' : ''}`} onClick={() => set('rarity', toggle(state.rarity, r))}>
-                  {r}
+                <button key={r} type="button" class={`sqb-btn sqb-btn-sm sqb-rarity-btn ${state.rarity.includes(r) ? 'sqb-btn-active' : ''}`} onClick={() => set('rarity', toggle(state.rarity, r))}>
+                  <span class={`sqb-rarity-dot sqb-rarity-${r}`} aria-hidden="true" />
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
                 </button>
               ))}
             </div>
