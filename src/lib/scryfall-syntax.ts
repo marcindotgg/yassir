@@ -10,7 +10,6 @@ export interface QueryState {
   colorCombos: string[];
   colorless: boolean;
   manaValue: string;
-  manaValueOp: '=' | '<=' | '>=' | '<' | '>';
   rarity: string[];
   /** Set codes, lower-case, as picked in the autocomplete. */
   sets: string[];
@@ -36,7 +35,6 @@ export const EMPTY_QUERY: QueryState = {
   colorCombos: [],
   colorless: false,
   manaValue: '',
-  manaValueOp: '=',
   rarity: [],
   sets: [],
   format: '',
@@ -157,7 +155,7 @@ export const FIELD_TERMS: Record<FieldId, (state: QueryState) => string[]> = {
     // Any of the picked combinations: `(c=orzhov or c=izzet)`.
     return [...colors, ...orGroup(s.colorCombos.map((name) => `c=${name}`))];
   },
-  manaValue: (s) => (NUMBER.test(s.manaValue.trim()) ? [`mv${s.manaValueOp}${s.manaValue.trim()}`] : []),
+  manaValue: (s) => compare('mv', s.manaValue),
   rarity: (s) => orGroup(s.rarity.map((r) => `r:${r}`)),
   sets: (s) => orGroup(s.sets.map((code) => `s:${code.trim().toLowerCase()}`)),
   format: (s) => (s.format ? [`f:${s.format}`] : []),

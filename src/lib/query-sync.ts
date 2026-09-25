@@ -150,8 +150,7 @@ const CLAIMERS: readonly Claimer[] = [
     field: 'manaValue',
     read: (n) => {
       const t = keyed(n, ['mv', 'cmc', 'manavalue'], CMP);
-      if (!t || t.op === '!=' || !NUMBER.test(t.value)) return null;
-      return { manaValue: t.value, manaValueOp: t.op === ':' ? '=' : (t.op as QueryState['manaValueOp']) };
+      return t ? { manaValue: compareText(t) } : null;
     },
   },
   {

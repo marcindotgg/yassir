@@ -6,7 +6,7 @@ describe('scryfall syntax builder', () => {
     expect(buildQuery(EMPTY_QUERY)).toBe('');
     expect(buildQuery({ ...EMPTY_QUERY, name: 'Lightning Bolt' })).toBe('name:"Lightning Bolt"');
     expect(buildQuery({ ...EMPTY_QUERY, colors: ['R', 'W'], type: 'instant' })).toBe('t:instant (c<=wr -c:c)');
-    expect(buildQuery({ ...EMPTY_QUERY, colorless: true, manaValue: '3', manaValueOp: '<=' })).toBe('c=c mv<=3');
+    expect(buildQuery({ ...EMPTY_QUERY, colorless: true, manaValue: '<=3' })).toBe('c=c mv<=3');
     expect(buildQuery({ ...EMPTY_QUERY, rarity: ['rare', 'mythic'], format: 'commander' })).toBe('(r:rare or r:mythic) f:commander');
     expect(buildQuery({ ...EMPTY_QUERY, text: 'draw "a card"', priceMax: '1.5', priceCurrency: 'eur' })).toBe('o:draw o:"a card" eur<=1.5');
     expect(buildQuery({ ...EMPTY_QUERY, power: '>=4', year: '2020', flags: ['foil'], order: 'eur', direction: 'asc' })).toBe('pow>=4 year=2020 is:foil order:eur direction:asc');

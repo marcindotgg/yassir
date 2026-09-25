@@ -49,7 +49,7 @@ function useDraft<T>(value: T, write: (value: T) => string): [T, (next: T) => vo
   return [draft.current, set];
 }
 
-type TextFieldId = 'name' | 'text' | 'type' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
+type TextFieldId = 'name' | 'text' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
 
 function TextField(props: { field: TextFieldId; label: string; placeholder: string; state: QueryState; onChange: Update }) {
   const { field } = props;
@@ -68,32 +68,6 @@ function TextField(props: { field: TextFieldId; label: string; placeholder: stri
         }}
       />
     </label>
-  );
-}
-
-const MV_OPS: QueryState['manaValueOp'][] = ['=', '<=', '>=', '<', '>'];
-
-function ManaValueField({ state, onChange }: { state: QueryState; onChange: Update }) {
-  const [mv, setMv] = useDraft({ manaValueOp: state.manaValueOp, manaValue: state.manaValue }, (v) => writes('manaValue', v));
-  const edit = (patch: Partial<typeof mv>) => {
-    const next = { ...mv, ...patch };
-    setMv(next);
-    onChange((s) => ({ ...s, ...next }));
-  };
-  return (
-    <div class="sqb-field">
-      <span class="sqb-label">Mana value</span>
-      <div class="sqb-row">
-        <select class="sqb-select" value={mv.manaValueOp} onChange={(e) => edit({ manaValueOp: (e.target as HTMLSelectElement).value as QueryState['manaValueOp'] })}>
-          {MV_OPS.map((op) => (
-            <option key={op} value={op}>
-              {op}
-            </option>
-          ))}
-        </select>
-        <input class="sqb-input sqb-input-sm" value={mv.manaValue} onInput={(e) => edit({ manaValue: (e.target as HTMLInputElement).value })} placeholder="3" />
-      </div>
-    </div>
   );
 }
 
@@ -139,7 +113,7 @@ export function QueryBuilder(props: QueryBuilderProps) {
               value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
               onChange={(next) => props.onChange((s) => ({ ...s, ...next }))}
             />
-            <ManaValueField {...field} />
+            <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="np. 3, <=2, >=4" />
           </div>
           <TextField {...field} field="type" label="Type (t:)" placeholder="legendary creature" />
           <div class="sqb-field">
@@ -162,15 +136,15 @@ export function QueryBuilder(props: QueryBuilderProps) {
           />
           <TextField {...field} field="text" label="Rules text (o:)" placeholder='draw "a card"' />
           <div class="sqb-qb-pair">
-            <TextField {...field} field="power" label="Power (pow)" placeholder=">=4" />
-            <TextField {...field} field="toughness" label="Toughness (tou)" placeholder="<=2" />
+            <TextField {...field} field="power" label="Power (pow)" placeholder="np. 3, >=4, >tou" />
+            <TextField {...field} field="toughness" label="Toughness (tou)" placeholder="np. 3, <=2, >pow" />
           </div>
         </div>
 
         {/* Everything the card itself doesn't show. */}
         <div class="sqb-qb-col sqb-qb-col-aside">
           <PriceField {...field} />
-          <TextField {...field} field="year" label="Year" placeholder=">=2020" />
+          <TextField {...field} field="year" label="Year" placeholder="np. 2020, >=2020" />
           <label class="sqb-field">
             <span class="sqb-label">Format (f:)</span>
             <select class="sqb-select" value={state.format} onChange={(e) => set('format', (e.target as HTMLSelectElement).value)}>

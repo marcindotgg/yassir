@@ -59,8 +59,7 @@ describe('reading the form out of the query', () => {
       type: 'instant',
       text: 'draw "a card"',
       colors: ['U', 'R'],
-      manaValue: '2',
-      manaValueOp: '>=',
+      manaValue: '>=2',
       rarity: ['rare', 'mythic'],
       sets: ['mh3', 'ltr'],
       format: 'modern',
@@ -83,7 +82,7 @@ describe('reading the form out of the query', () => {
       { colors: ['R', 'W'], type: 'instant' },
       { colors: ['G'], manaValue: '2' },
       { colorCombos: ['orzhov', 'izzet'], sets: ['mh3'], flags: ['foil', 'promo'], order: 'name' },
-      { text: 'draw "a card"', type: 'legendary creature', manaValue: '3', manaValueOp: '<', priceMax: '2', priceCurrency: 'usd' },
+      { text: 'draw "a card"', type: 'legendary creature', manaValue: '<3', priceMax: '2', priceCurrency: 'usd' },
       { name: "Urza's", power: '!=3', otag: 'removal ramp', year: '2020', direction: 'asc' },
     ];
     for (const s of states) {
@@ -99,7 +98,6 @@ describe('reading the form out of the query', () => {
       type: 'elf',
       text: 'flying',
       manaValue: '3',
-      manaValueOp: '=',
       rarity: ['mythic'],
       sets: ['mh3'],
       format: 'pauper',
@@ -118,7 +116,7 @@ describe('reading the form out of the query', () => {
   });
 
   it('pins what no field can show', () => {
-    expect(extras('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland mv:even r>=rare o:/draw a/ !fire foo:bar')).toEqual([
+    expect(extras('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland r>=rare o:/draw a/ !fire foo:bar')).toEqual([
       '-t:creature',
       'c>=r',
       'c<=ur',
@@ -129,7 +127,6 @@ describe('reading the form out of the query', () => {
       'kw:flying',
       'f:penny',
       'is:fetchland',
-      'mv:even',
       'r>=rare',
       'o:/draw a/',
       '!fire',
@@ -156,7 +153,7 @@ describe('reading the form out of the query', () => {
 describe('writing the form into the query', () => {
   it('rewrites a changed field in place and leaves the rest of the text alone', () => {
     expect(edit('t:instant  kw:flying   s:mh3', { type: 'sorcery' })).toBe('t:sorcery  kw:flying   s:mh3');
-    expect(edit('kw:flying mv=2 -is:reprint', { manaValue: '3', manaValueOp: '<=' })).toBe('kw:flying mv<=3 -is:reprint');
+    expect(edit('kw:flying mv=2 -is:reprint', { manaValue: '<=3' })).toBe('kw:flying mv<=3 -is:reprint');
     expect(edit('T:Instant c=r', { colors: ['R', 'U'] })).toBe('T:Instant (c<=ur -c:c)');
     expect(edit('(c<=ur -c:c) t:elf', { colors: ['U'] })).toBe('c=u t:elf');
   });
@@ -185,7 +182,7 @@ describe('writing the form into the query', () => {
   it('leaves the query alone when a change writes nothing new', () => {
     // A price currency with no price, an operator with no value: nothing to write.
     expect(edit('t:elf', { priceCurrency: 'usd' })).toBe('t:elf');
-    expect(edit('t:elf ', { manaValueOp: '<' })).toBe('t:elf ');
+    expect(edit('t:elf ', { manaValue: '' })).toBe('t:elf ');
   });
 
   it('brackets a bare OR before ANDing anything onto it', () => {
@@ -216,7 +213,7 @@ describe('removing a pinned condition', () => {
 
 describe('naming pinned conditions', () => {
   it('names keywords, operators and negations', () => {
-    expect(pins('kw:flying atag:dragon -t:creature loy>=3 usd>10 c>=wu id<=izzet mv:even')).toEqual([
+    expect(pins('kw:flying atag:dragon -t:creature loy>=3 usd>10 c>=wu id<=izzet')).toEqual([
       'Keyword: flying',
       'Art tag: dragon',
       'not Type: creature',
@@ -224,7 +221,6 @@ describe('naming pinned conditions', () => {
       'Price (USD) > 10',
       'Colors ≥ WU',
       'Color identity ≤ Izzet',
-      'Mana value: even',
     ]);
   });
 
