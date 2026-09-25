@@ -18,7 +18,15 @@ interface Item {
   haystack: string;
 }
 
-const SWATCH: Record<string, string> = { W: '#f8f6d8', U: '#6fa8dc', B: '#5b524d', R: '#e0694a', G: '#5e9e5a', C: '#c8c4c0' };
+/** Light and dark end of each color's gradient, lit from above like the rarity gems. */
+const SWATCH: Record<string, [light: string, dark: string]> = {
+  W: ['#fffdf0', '#d8cf98'],
+  U: ['#b4d6f2', '#3d78b0'],
+  B: ['#8a7f78', '#221d1a'],
+  R: ['#ffb08f', '#c23f22'],
+  G: ['#a5d69f', '#347a3a'],
+  C: ['#e6e3e0', '#9a9590'],
+};
 const NAMES = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' } as const;
 const LIST_HEIGHT = 340;
 
@@ -36,12 +44,18 @@ const ITEMS: readonly Item[] = [
 const isSelected = (sel: ColorSelection, { option }: Item): boolean =>
   option.kind === 'color' ? sel.colors.includes(option.value) : option.kind === 'colorless' ? sel.colorless : sel.colorCombos.includes(option.value);
 
-/** A disc split into equal slices, one per color, in WUBRG order. */
+/** A disc split into equal slices, one per color, in WUBRG order, each shaded light to dark. */
 function pie(letters: string): string {
-  const colors = letters.split('').map((l) => SWATCH[l] ?? SWATCH.C);
-  if (colors.length === 1) return colors[0] as string;
+  const colors = letters.split('').map((l) => SWATCH[l] ?? (SWATCH.C as [string, string]));
+  if (colors.length === 1) {
+    const [light, dark] = colors[0] as [string, string];
+    return `radial-gradient(circle at 50% 20%, ${light}, ${dark})`;
+  }
   const step = 360 / colors.length;
-  return `conic-gradient(${colors.map((c, i) => `${c} ${i * step}deg ${(i + 1) * step}deg`).join(', ')})`;
+  // Flat slices in each color's mid tone, with one shared gloss over the whole disc so the seams stay clean.
+  const slices = colors.map(([light, dark], i) => `color-mix(in srgb, ${light}, ${dark}) ${i * step}deg ${(i + 1) * step}deg`);
+  const gloss = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25))';
+  return `${gloss}, conic-gradient(${slices.join(', ')})`;
 }
 
 const Pie = ({ letters, size }: { letters: string; size: 'sm' | 'lg' }) => (
