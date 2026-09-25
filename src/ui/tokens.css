@@ -5,6 +5,7 @@
   --sqb-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --sqb-radius: 10px;
   --sqb-radius-sm: 6px;
+  --sqb-control-h: 36px;
   --sqb-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
 
   --sqb-bg: #ffffff;

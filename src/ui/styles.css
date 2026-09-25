@@ -149,7 +149,10 @@
   background: var(--sqb-bg);
   border: 1px solid var(--sqb-border);
   border-radius: var(--sqb-radius-sm);
-  padding: 5px 8px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  height: var(--sqb-control-h, 36px);
+  line-height: 1.2;
   min-width: 0;
 }
 .sqb-input:focus,
@@ -159,7 +162,7 @@
   box-shadow: 0 0 0 3px var(--sqb-primary-soft);
 }
 .sqb-input-sm {
-  padding: 2px 6px;
+  padding: 6px;
   width: 52px;
   text-align: center;
 }
@@ -545,7 +548,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  min-height: 32px;
+  box-sizing: border-box;
+  min-height: var(--sqb-control-h, 36px);
   padding: 3px 24px 3px 6px;
   position: relative;
   background: var(--sqb-bg);
