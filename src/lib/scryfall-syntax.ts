@@ -150,10 +150,12 @@ export const FIELD_TERMS: Record<FieldId, (state: QueryState) => string[]> = {
   text: (s) => splitTerms(s.text).map((word) => textTerm('o', word)),
   type: (s) => splitTerms(s.type).map((word) => textTerm('t', word)),
   colors: (s) => {
-    if (s.colorless) return ['c:c'];
+    if (s.colorless) return ['c=c'];
     const letters = COLORS.filter((c) => s.colors.includes(c)).join('').toLowerCase();
+    // One color exactly: `c=r`; several at most, colorless left out: `(c<=ur -c:c)`.
+    const colors = letters.length > 1 ? [`(c<=${letters} -c:c)`] : letters ? [`c=${letters}`] : [];
     // Any of the picked combinations: `(c=orzhov or c=izzet)`.
-    return [...(letters ? [`c<=${letters}`] : []), ...orGroup(s.colorCombos.map((name) => `c=${name}`))];
+    return [...colors, ...orGroup(s.colorCombos.map((name) => `c=${name}`))];
   },
   manaValue: (s) => (NUMBER.test(s.manaValue.trim()) ? [`mv${s.manaValueOp}${s.manaValue.trim()}`] : []),
   rarity: (s) => orGroup(s.rarity.map((r) => `r:${r}`)),

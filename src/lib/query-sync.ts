@@ -82,6 +82,20 @@ function colorLetters(value: string): string[] | null {
   return COLORS.filter((c) => letters.includes(c));
 }
 
+/** `-c:c`, `-color=colorless`. */
+function notColorless(node: Expr): boolean {
+  if (node.kind !== 'term' || !node.negated || node.exact || node.regex) return false;
+  return ['c', 'color'].includes(node.key) && (node.op === ':' || node.op === '=') && ['c', 'colorless'].includes(node.value.toLowerCase());
+}
+
+/** `(c<=ur -c:c)`, either way round -> ['U', 'R']; null for anything else. */
+function atMostColors(node: Expr): string[] | null {
+  if (node.kind !== 'group' || node.negated || node.body?.kind !== 'and' || node.body.items.length !== 2) return null;
+  const { items } = node.body;
+  const atMost = items.map((item) => keyed(item, ['c', 'color'], ['<='])).find((t) => t !== null);
+  return atMost && items.some(notColorless) ? colorLetters(atMost.value.toLowerCase()) : null;
+}
+
 interface Claimer {
   field: FieldId;
   /** Takes every condition it matches (they add up), not only the first. */
@@ -120,16 +134,16 @@ const CLAIMERS: readonly Claimer[] = [
   {
     field: 'colors',
     read: (n) => {
+      const value = keyed(n, ['c', 'color'], EQ)?.value.toLowerCase();
+      if (value === 'c' || value === 'colorless') return { colorless: true };
+      const one = keyed(n, ['c', 'color'], ['='])?.value.toUpperCase() ?? '';
+      if (has(COLORS, one)) return { colors: [one] };
+      const several = atMostColors(n);
+      if (several) return { colors: several };
+      // `c:izzet` is "at least blue and red"; only `c=` is the exact combination.
+      if (!alternatives(n)?.every((alt) => (alt as Term).op === '=')) return null;
       const combos = anyOf(n, ['c', 'color'], (v) => (COMBOS.has(v) ? v : null));
-      if (combos && alternatives(n)?.every((alt) => (alt as Term).op === '=')) return { colorCombos: combos };
-      const t = keyed(n, ['c', 'color'], ['<=', ':', '=']);
-      if (!t) return null;
-      const v = t.value.toLowerCase();
-      if (t.op === '<=') {
-        const colors = colorLetters(v);
-        return colors ? { colors } : null;
-      }
-      return v === 'c' || v === 'colorless' ? { colorless: true } : null;
+      return combos ? { colorCombos: combos } : null;
     },
   },
   {

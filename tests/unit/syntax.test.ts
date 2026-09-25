@@ -5,20 +5,21 @@ describe('scryfall syntax builder', () => {
   it('builds queries from the form state', () => {
     expect(buildQuery(EMPTY_QUERY)).toBe('');
     expect(buildQuery({ ...EMPTY_QUERY, name: 'Lightning Bolt' })).toBe('name:"Lightning Bolt"');
-    expect(buildQuery({ ...EMPTY_QUERY, colors: ['R', 'W'], type: 'instant' })).toBe('t:instant c<=wr');
-    expect(buildQuery({ ...EMPTY_QUERY, colorless: true, manaValue: '3', manaValueOp: '<=' })).toBe('c:c mv<=3');
+    expect(buildQuery({ ...EMPTY_QUERY, colors: ['R', 'W'], type: 'instant' })).toBe('t:instant (c<=wr -c:c)');
+    expect(buildQuery({ ...EMPTY_QUERY, colorless: true, manaValue: '3', manaValueOp: '<=' })).toBe('c=c mv<=3');
     expect(buildQuery({ ...EMPTY_QUERY, rarity: ['rare', 'mythic'], format: 'commander' })).toBe('(r:rare or r:mythic) f:commander');
     expect(buildQuery({ ...EMPTY_QUERY, text: 'draw "a card"', priceMax: '1.5', priceCurrency: 'eur' })).toBe('o:draw o:"a card" eur<=1.5');
     expect(buildQuery({ ...EMPTY_QUERY, power: '>=4', year: '2020', flags: ['foil'], order: 'eur', direction: 'asc' })).toBe('pow>=4 year=2020 is:foil order:eur direction:asc');
   });
 
-  it('builds "at most" for single colors and an or-group for combinations', () => {
+  it('builds one color exactly, several at most without colorless, and an or-group for combinations', () => {
     const q = (s: Partial<typeof EMPTY_QUERY>) => buildQuery({ ...EMPTY_QUERY, ...s });
-    expect(q({ colors: ['U', 'R'] })).toBe('c<=ur');
+    expect(q({ colors: ['R'] })).toBe('c=r');
+    expect(q({ colors: ['R', 'U'] })).toBe('(c<=ur -c:c)');
     expect(q({ colorCombos: ['izzet'] })).toBe('c=izzet');
     expect(q({ colorCombos: ['orzhov', 'izzet'] })).toBe('(c=orzhov or c=izzet)');
     // Colorless overrides everything else in the field.
-    expect(q({ colorless: true, colors: ['R'], colorCombos: ['izzet'] })).toBe('c:c');
+    expect(q({ colorless: true, colors: ['R'], colorCombos: ['izzet'] })).toBe('c=c');
   });
 
   it('keeps the three kinds of color pick mutually exclusive', () => {

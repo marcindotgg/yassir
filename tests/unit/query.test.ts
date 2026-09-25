@@ -50,7 +50,7 @@ describe('query parser', () => {
 
 describe('reading the form out of the query', () => {
   it('fills every field it has a term for', () => {
-    const q = 'bolt t:instant o:draw o:"a card" c<=ur mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
+    const q = 'bolt t:instant o:draw o:"a card" (c<=ur -c:c) mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
     const { state, extras: rest } = readQuery(q);
     expect(rest).toEqual([]);
     expect(state).toEqual({
@@ -80,6 +80,8 @@ describe('reading the form out of the query', () => {
   it('reads back everything the form writes', () => {
     const states: Partial<QueryState>[] = [
       { name: 'Lightning Bolt', colorless: true, rarity: ['common'] },
+      { colors: ['R', 'W'], type: 'instant' },
+      { colors: ['G'], manaValue: '2' },
       { colorCombos: ['orzhov', 'izzet'], sets: ['mh3'], flags: ['foil', 'promo'], order: 'name' },
       { text: 'draw "a card"', type: 'legendary creature', manaValue: '3', manaValueOp: '<', priceMax: '2', priceCurrency: 'usd' },
       { name: "Urza's", power: '!=3', otag: 'removal ramp', year: '2020', direction: 'asc' },
@@ -107,16 +109,22 @@ describe('reading the form out of the query', () => {
       artist: 'avon',
       otag: 'removal',
     });
-    expect(readQuery('c<=izzet').state.colors).toEqual(['U', 'R']);
+    expect(readQuery('color=R').state.colors).toEqual(['R']);
+    expect(readQuery('(-color=colorless c<=izzet)').state.colors).toEqual(['U', 'R']);
     expect(readQuery('c:c').state.colorless).toBe(true);
+    expect(readQuery('c=colorless').state.colorless).toBe(true);
     expect(readQuery('c=jund').state.colorCombos).toEqual(['jund']);
     expect(readQuery('(c=orzhov or c=izzet)').state.colorCombos).toEqual(['orzhov', 'izzet']);
   });
 
   it('pins what no field can show', () => {
-    expect(extras('-t:creature c>=r c:izzet kw:flying f:penny is:fetchland mv:even r>=rare o:/draw a/ !fire foo:bar')).toEqual([
+    expect(extras('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland mv:even r>=rare o:/draw a/ !fire foo:bar')).toEqual([
       '-t:creature',
       'c>=r',
+      'c<=ur',
+      '-c:c',
+      '(c=u or c=r)',
+      'c:r',
       'c:izzet',
       'kw:flying',
       'f:penny',
@@ -130,7 +138,7 @@ describe('reading the form out of the query', () => {
   });
 
   it('gives a single-value field only its first condition', () => {
-    const r = readQuery('f:modern f:legacy c<=r c=izzet');
+    const r = readQuery('f:modern f:legacy c=r c=izzet');
     expect(r.state.format).toBe('modern');
     expect(r.state.colors).toEqual(['R']);
     expect(r.extras.map((c) => c.text)).toEqual(['f:legacy', 'c=izzet']);
@@ -149,7 +157,8 @@ describe('writing the form into the query', () => {
   it('rewrites a changed field in place and leaves the rest of the text alone', () => {
     expect(edit('t:instant  kw:flying   s:mh3', { type: 'sorcery' })).toBe('t:sorcery  kw:flying   s:mh3');
     expect(edit('kw:flying mv=2 -is:reprint', { manaValue: '3', manaValueOp: '<=' })).toBe('kw:flying mv<=3 -is:reprint');
-    expect(edit('T:Instant c<=r', { colors: ['R', 'U'] })).toBe('T:Instant c<=ur');
+    expect(edit('T:Instant c=r', { colors: ['R', 'U'] })).toBe('T:Instant (c<=ur -c:c)');
+    expect(edit('(c<=ur -c:c) t:elf', { colors: ['U'] })).toBe('c=u t:elf');
   });
 
   it('adds a new field at the end and drops an emptied one with its separator', () => {
@@ -180,15 +189,16 @@ describe('writing the form into the query', () => {
   });
 
   it('brackets a bare OR before ANDing anything onto it', () => {
-    expect(edit('t:instant or t:sorcery', { colors: ['R'] })).toBe('(t:instant or t:sorcery) c<=r');
+    expect(edit('t:instant or t:sorcery', { colors: ['R'] })).toBe('(t:instant or t:sorcery) c=r');
     expect(edit('r:rare or r:mythic', { rarity: ['rare'] })).toBe('r:rare');
   });
 
   it('keeps a picked color kind exclusive in the query too', () => {
-    const q = 'c<=r t:elf';
+    const q = 'c=r t:elf';
     const state = readQuery(q).state;
     expect(writeQuery(q, { ...state, ...toggleColorOption(state, { kind: 'combo', value: 'izzet' }) })).toBe('c=izzet t:elf');
   });
+
 });
 
 describe('removing a pinned condition', () => {
