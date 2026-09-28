@@ -42,6 +42,8 @@ const POPULAR_ARTISTS = [
   'Magali Villeneuve',
 ];
 const ARTIST_PLACEHOLDER = POPULAR_ARTISTS[Math.floor(Math.random() * POPULAR_ARTISTS.length)] ?? 'Seb McKinnon';
+const TYPES = TYPE_GROUPS.flatMap((group) => group.items);
+const TYPE_PLACEHOLDER = TYPES[Math.floor(Math.random() * TYPES.length)] ?? 'Creature';
 
 const ORDER_LABELS: Partial<Record<(typeof ORDERS)[number], string>> = { usd: 'USD', eur: 'EUR', cmc: 'CMC', edhrec: 'EDHREC' };
 
@@ -115,7 +117,7 @@ function CardFields({ state, onChange, setList }: FormProps & { setList: SetList
         />
         <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
       </div>
-      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="Legendary creature" />
+      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder={`e.g. ${TYPE_PLACEHOLDER}`} />
       <div class="sqb-field">
         <span class="sqb-label">Rarity</span>
         <div class="sqb-wrap">
