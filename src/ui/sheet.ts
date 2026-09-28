@@ -108,7 +108,9 @@ export function hideElements(elements: Element[]): () => void {
   const styled = elements.filter((element): element is HTMLElement | SVGElement => 'style' in element);
   const previous = styled.map((element) => element.style.visibility);
   for (const element of styled) element.style.visibility = 'hidden';
-  return () => styled.forEach((element, i) => (element.style.visibility = previous[i] ?? ''));
+  return () => {
+    for (const [i, element] of styled.entries()) element.style.visibility = previous[i] ?? '';
+  };
 }
 
 export function lockPageScroll(): () => void {

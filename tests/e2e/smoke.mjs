@@ -37,7 +37,6 @@ const step = async (name, fn) => {
 };
 
 const inPage = (fn, arg) => page.evaluate(fn, arg);
-const shadowText = () => inPage(() => document.querySelector('scryfall-query-builder')?.shadowRoot?.textContent ?? '');
 const mirrorValue = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value);
 const waitQuery = (re) =>
   page.waitForFunction((src) => new RegExp(src).test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror')?.value ?? ''), re, { timeout: 5000 });
@@ -79,7 +78,7 @@ await step('focusing the search box opens the modal over it', async () => {
     });
     const a = document.querySelector('input#q').getBoundingClientRect();
     const b = mirror.getBoundingClientRect();
-    anims.forEach((a) => a.finish());
+    for (const anim of anims) anim.finish();
     const opened = mirror.getBoundingClientRect();
     return {
       widened: opened.width > a.width + 100,
@@ -346,7 +345,7 @@ await step('on /search the header box opens it, unfolding downwards', async () =
     });
     const a = document.querySelector('#header-search-field').getBoundingClientRect();
     const start = mirror.getBoundingClientRect();
-    anims.forEach((a) => a.finish());
+    for (const anim of anims) anim.finish();
     const end = mirror.getBoundingClientRect();
     return {
       dx: Math.abs(a.left - start.left) + Math.abs(a.right - start.right),

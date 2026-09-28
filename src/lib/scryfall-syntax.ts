@@ -109,7 +109,7 @@ export const FLAGS = ['foil', 'nonfoil', 'promo', 'reprint', 'firstprint', 'digi
 export const ORDERS = ['name', 'set', 'released', 'rarity', 'color', 'usd', 'eur', 'cmc', 'power', 'toughness', 'edhrec', 'artist'] as const;
 
 export const DECIMAL = /^\d+(\.\d+)?$/;
-const BARE_NAME = /^[^\s"():<>=!\/-][^\s"():<>=!]*$/;
+const BARE_NAME = /^[^\s"():<>=!/-][^\s"():<>=!]*$/;
 
 export const FIELDS = ['name', 'rulesText', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'otag', 'year', 'flags', 'order', 'direction'] as const;
 export type FieldId = (typeof FIELDS)[number];

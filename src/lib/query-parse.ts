@@ -28,7 +28,7 @@ export interface List extends Span {
   items: Expr[];
 }
 
-export interface Stray extends Span {
+interface Stray extends Span {
   kind: 'stray';
 }
 

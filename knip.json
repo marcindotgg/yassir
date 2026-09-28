@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["entrypoints/*.{ts,tsx}", "tests/e2e/*.mjs"],
+  "project": ["entrypoints/**", "src/**", "tests/**"],
+  "ignoreUnresolved": ["#imports"]
+}

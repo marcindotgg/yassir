@@ -5,6 +5,11 @@
     "jsxImportSource": "preact",
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "types": ["vitest/globals"]
   },
   "include": [".wxt/wxt.d.ts", "entrypoints", "src", "tests", "wxt.config.ts", "vitest.config.ts"]
