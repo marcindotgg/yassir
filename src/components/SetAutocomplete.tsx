@@ -28,7 +28,8 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
       .slice(0, MAX_SUGGESTIONS);
   }, [sets, selected, text]);
 
-  useEffect(() => setActive(0), [text]);
+  // Nothing is highlighted over an empty field, so Enter there submits the form instead of adding a set.
+  useEffect(() => setActive(text.trim() ? 0 : -1), [text]);
 
   const add = (code: string) => {
     const normalized = code.trim().toLowerCase();
@@ -47,10 +48,12 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
       if (suggestions.length === 0) return;
       event.preventDefault();
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((i) => (i + step + suggestions.length) % suggestions.length);
+      setActive((i) => (i < 0 && step < 0 ? suggestions.length - 1 : (i + step + suggestions.length) % suggestions.length));
     } else if (event.key === 'Enter') {
+      const code = suggestions[active]?.code ?? text;
+      if (!code.trim()) return;
       event.preventDefault();
-      add(suggestions[active]?.code ?? text);
+      add(code);
     } else if (event.key === 'Escape' && open) {
       event.preventDefault();
       setOpen(false);

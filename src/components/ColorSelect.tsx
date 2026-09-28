@@ -101,10 +101,10 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
       if (!open) setOpen(true);
       else if (visible.length > 0) setActive((i) => (i + step + visible.length) % visible.length);
     } else if (event.key === 'Enter') {
+      if (!open) return;
       event.preventDefault();
       const item = visible[active];
-      if (open && item) toggle(item);
-      else setOpen(true);
+      if (item) toggle(item);
     } else if (event.key === 'Escape' && open) {
       event.preventDefault();
       setOpen(false);

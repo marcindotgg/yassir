@@ -40,8 +40,14 @@ export function QueryBuilder({ query, state, onChange, otherConditions, typing, 
   const setField = fieldSetter(onChange);
   const isEmpty = !query.trim();
 
+  // Enter in any field submits; widgets that use Enter themselves call preventDefault on it.
+  const submit = (event: SubmitEvent) => {
+    event.preventDefault();
+    if (!isEmpty && !searching) onSearch();
+  };
+
   return (
-    <div class="sqb-stack sqb-builder">
+    <form class="sqb-stack sqb-builder" onSubmit={submit}>
       <div class="sqb-builder-columns">
         <CardFields state={state} onChange={onChange} setList={setList} />
         <OtherFields state={state} onChange={onChange} />
@@ -69,18 +75,12 @@ export function QueryBuilder({ query, state, onChange, otherConditions, typing, 
         <button type="button" class="sqb-btn sqb-btn-ghost" disabled={isEmpty} onClick={onClear}>
           Clear
         </button>
-        <button
-          type="button"
-          class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`}
-          disabled={isEmpty}
-          aria-busy={searching}
-          onClick={searching ? undefined : onSearch}
-        >
+        <button type="submit" class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`} disabled={isEmpty} aria-busy={searching}>
           {searching && <span class="sqb-spinner" aria-hidden="true" />}
           {searching ? 'Searching…' : 'Search'}
         </button>
       </div>
-    </div>
+    </form>
   );
 }
 
