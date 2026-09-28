@@ -20,7 +20,7 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
   const listId = useId();
 
   const { head, word } = splitLastWord(value);
-  const groups = useMemo(() => filterSuggestions(suggestions, word), [suggestions, word]);
+  const groups = useMemo(() => filterSuggestions(suggestions, word, descriptions), [suggestions, word, descriptions]);
   const options = useMemo(() => groups.flatMap((group) => group.items), [groups]);
 
   useEffect(() => setActive(-1), [word]);
@@ -91,7 +91,11 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
                           <span class="sqb-option-name">
                             <HighlightedMatch text={option} match={word} />
                           </span>
-                          {descriptions?.has(option) && <span class="sqb-option-description">{descriptions.get(option)}</span>}
+                          {descriptions?.has(option) && (
+                            <span class="sqb-option-description">
+                              <HighlightedMatch text={descriptions.get(option)!} match={word} />
+                            </span>
+                          )}
                         </span>
                       </button>
                     </li>

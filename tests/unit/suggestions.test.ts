@@ -22,4 +22,9 @@ describe('oracle tag suggestions', () => {
     expect(removal!.items).not.toContain('removal');
     expect(filterSuggestions(TAG_GROUPS, 'ROCK').flatMap((g) => g.items)).toEqual(['mana-rock']);
   });
+
+  it('also matches the description when given', () => {
+    expect(filterSuggestions(TAG_GROUPS, 'wipe').flatMap((g) => g.items)).toEqual([]);
+    expect(filterSuggestions(TAG_GROUPS, 'wipe', TAG_DESCRIPTIONS).flatMap((g) => g.items)).toContain('sweeper');
+  });
 });
