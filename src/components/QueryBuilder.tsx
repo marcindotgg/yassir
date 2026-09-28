@@ -29,6 +29,20 @@ interface QueryBuilderProps extends FormProps {
   onSearch: () => void;
 }
 
+const POPULAR_ARTISTS = [
+  'John Avon',
+  'Christopher Rush',
+  'Rebecca Guay',
+  'Kev Walker',
+  'Mark Tedin',
+  'Ron Spencer',
+  'Seb McKinnon',
+  'Quinton Hoover',
+  'Richard Kane Ferguson',
+  'Magali Villeneuve',
+];
+const ARTIST_PLACEHOLDER = POPULAR_ARTISTS[Math.floor(Math.random() * POPULAR_ARTISTS.length)] ?? 'Seb McKinnon';
+
 const ORDER_LABELS: Partial<Record<(typeof ORDERS)[number], string>> = { usd: 'USD', eur: 'EUR', cmc: 'CMC', edhrec: 'EDHREC' };
 
 type TextFieldId = 'name' | 'rulesText' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
@@ -148,7 +162,7 @@ function OtherFields({ state, onChange }: FormProps) {
         </select>
       </label>
       <SuggestField {...form} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="Removal" />
-      <TextField {...form} field="artist" label="Artist (a:)" placeholder="Seb McKinnon" />
+      <TextField {...form} field="artist" label="Artist (a:)" placeholder={ARTIST_PLACEHOLDER} />
       <div class="sqb-field">
         <span class="sqb-label">Sort</span>
         <div class="sqb-input-group">
