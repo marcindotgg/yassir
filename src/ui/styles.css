@@ -4,6 +4,7 @@
  * Laid out here rather than with a style attribute, which Scryfall's CSP drops.
  * !important because WXT resets the host with `:host { all: initial !important }`.
  */
+/* biome-ignore-start lint/complexity/noImportantStyles: see above */
 :host {
   display: block !important;
   position: fixed !important;
@@ -13,6 +14,7 @@
   height: 0 !important;
   z-index: 2147483000 !important;
 }
+/* biome-ignore-end lint/complexity/noImportantStyles: see above */
 
 .sqb-root {
   font-family: var(--sqb-font);
@@ -463,6 +465,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sqb-modal *,
   .sqb-modal {
+    /* biome-ignore lint/complexity/noImportantStyles: must override every animation rule */
     animation: none !important;
   }
 }
