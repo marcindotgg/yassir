@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef, useState } from 'preact/hooks';
 import { findSet, searchSets, setMeta } from '../lib/sets';
 import { DropdownList } from './Dropdown';
-import { useCursor } from './useCursor';
+import { cycleIndex, useCursor } from './useCursor';
 import type { SetList } from './useSets';
 
 interface SetAutocompleteProps {
@@ -47,10 +47,7 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
       if (!open) setOpen(true);
       if (suggestions.length === 0) return;
       event.preventDefault();
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive(
-        active < 0 && step < 0 ? suggestions.length - 1 : (active + step + suggestions.length) % suggestions.length,
-      );
+      setActive(cycleIndex(active, event.key === 'ArrowDown' ? 1 : -1, suggestions.length));
     } else if (event.key === 'Enter') {
       const code = suggestions[active]?.code ?? text;
       if (!code.trim()) return;

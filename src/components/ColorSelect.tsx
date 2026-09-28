@@ -8,7 +8,7 @@ import {
   toggleColorOption,
 } from '../lib/scryfall-syntax';
 import { DropdownList } from './Dropdown';
-import { useCursor } from './useCursor';
+import { cycleIndex, useCursor } from './useCursor';
 
 interface ColorSelectProps {
   value: ColorSelection;
@@ -113,7 +113,7 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
       event.preventDefault();
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (!open) setOpen(true);
-      else if (visible.length > 0) setActive((active + step + visible.length) % visible.length);
+      else if (visible.length > 0) setActive(cycleIndex(active, step, visible.length));
     } else if (event.key === 'Enter') {
       if (!open) return;
       event.preventDefault();

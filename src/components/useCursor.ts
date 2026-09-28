@@ -9,3 +9,9 @@ export function useCursor<K>(key: K, initial: number): [number, (index: number) 
   const index = cursor.key === key ? cursor.index : initial;
   return [index, (next) => setCursor({ key, index: next })];
 }
+
+/** Steps through `length` items with wrap-around; from -1 (nothing active) it enters at either end. */
+export function cycleIndex(index: number, step: 1 | -1, length: number): number {
+  if (index < 0 && step < 0) return length - 1;
+  return (index + step + length) % length;
+}

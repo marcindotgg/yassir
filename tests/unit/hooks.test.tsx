@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { describe, expect, it } from 'vitest';
-import { useCursor } from '../../src/components/useCursor';
+import { cycleIndex, useCursor } from '../../src/components/useCursor';
 import { useEvent } from '../../src/components/useEvent';
 
 function mount<P extends object>(Component: (props: P) => null, props: P) {
@@ -45,5 +45,18 @@ describe('useEvent', () => {
     rerender({ value: 2 });
     expect(seen[0]).toBe(seen[1]);
     expect(seen[0]?.()).toBe(2);
+  });
+});
+
+describe('cycleIndex', () => {
+  it('wraps around both ends', () => {
+    expect(cycleIndex(2, 1, 3)).toBe(0);
+    expect(cycleIndex(0, -1, 3)).toBe(2);
+    expect(cycleIndex(1, 1, 3)).toBe(2);
+  });
+
+  it('enters from nothing active at either end', () => {
+    expect(cycleIndex(-1, 1, 3)).toBe(0);
+    expect(cycleIndex(-1, -1, 3)).toBe(2);
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { filterSuggestions, type SuggestionGroup, splitLastWord } from '../lib/suggestions';
 import { DropdownList } from './Dropdown';
-import { useCursor } from './useCursor';
+import { cycleIndex, useCursor } from './useCursor';
 
 const LIST_HEIGHT = 260;
 
@@ -39,9 +39,7 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
       event.preventDefault();
       setOpen(true);
       if (options.length === 0) return;
-      setActive(
-        event.key === 'ArrowDown' ? (active + 1) % options.length : active <= 0 ? options.length - 1 : active - 1,
-      );
+      setActive(cycleIndex(active, event.key === 'ArrowDown' ? 1 : -1, options.length));
     } else if (event.key === 'Enter') {
       const option = open ? options[active] : undefined;
       if (!option) return;
