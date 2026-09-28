@@ -15,6 +15,7 @@ import {
   snapshotAdornments,
 } from '../ui/sheet';
 import { QueryBuilder } from './QueryBuilder';
+import { useEvent } from './useEvent';
 import { useSets } from './useSets';
 
 interface SearchModalProps {
@@ -47,10 +48,10 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const closeTimer = useRef(0);
   const restoreOriginal = useRef<(() => void) | null>(null);
 
-  const revealOriginal = () => {
+  const revealOriginal = useEvent(() => {
     restoreOriginal.current?.();
     restoreOriginal.current = null;
-  };
+  });
 
   const updateQuery = (value: string, typing = false) => {
     setQuery({ value, typing, searching: false });
@@ -62,7 +63,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     setQuery((current) => ({ ...current, searching: true }));
   };
 
-  const teardown = (refocusInput: boolean) => {
+  const teardown = useEvent((refocusInput: boolean) => {
     window.clearTimeout(closeTimer.current);
     closeTimer.current = 0;
     const end = input.value.length;
@@ -79,7 +80,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     input.focus();
     input.setSelectionRange(selectionStart, selectionEnd);
     isRefocusingInput.current = false;
-  };
+  });
 
   const close = (refocusInput: boolean) => {
     if (!isOpen.current || closeTimer.current) return;

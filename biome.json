@@ -47,7 +47,10 @@
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
         "noUnusedFunctionParameters": "warn",
-        "useExhaustiveDependencies": "warn",
+        "useExhaustiveDependencies": {
+          "level": "warn",
+          "options": { "hooks": [{ "name": "useEvent", "stableResult": true }] }
+        },
         "useHookAtTopLevel": "error"
       },
       "style": {
