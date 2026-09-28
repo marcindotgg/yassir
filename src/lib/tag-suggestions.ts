@@ -1,13 +1,6 @@
-import type { TypeGroup } from './type-suggestions';
+import type { SuggestionGroup } from './suggestions';
 
-/**
- * Scryfall Tagger oracle tags worth suggesting, picked from the full tag list
- * for what players search by: a card's role in a deck, not trivia like
- * `alliteration` or `punny-name`, and not per-set `cycle-*` tags. Parent tags
- * (`removal`, `draw`, `tutor`) also match their children, so each group leads
- * with its broadest tag and goes on roughly by how many cards carry the rest.
- * Each tag maps to a description of at most 64 characters.
- */
+// Tags for a card's role in a deck, not trivia. Each group leads with its broadest tag, which also matches its children.
 const TAGS: Record<string, Record<string, string>> = {
   Removal: {
     removal: 'Any way of getting rid of opposing permanents',
@@ -217,7 +210,6 @@ const TAGS: Record<string, Record<string, string>> = {
   },
 };
 
-/** Oracle tag → a short description of what it means. */
 export const TAG_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(Object.values(TAGS).flatMap((tags) => Object.entries(tags)));
 
-export const TAG_GROUPS: readonly TypeGroup[] = Object.entries(TAGS).map(([label, tags]) => ({ label, items: Object.keys(tags) }));
+export const TAG_GROUPS: readonly SuggestionGroup[] = Object.entries(TAGS).map(([label, tags]) => ({ label, items: Object.keys(tags) }));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../../src/lib/tag-suggestions';
-import { suggestFrom } from '../../src/lib/type-suggestions';
+import { filterSuggestions } from '../../src/lib/suggestions';
 
 describe('oracle tag suggestions', () => {
   it('lists each tag once, as a slug otag: accepts', () => {
@@ -16,10 +16,10 @@ describe('oracle tag suggestions', () => {
   });
 
   it('matches anywhere in the tag and keeps the group order', () => {
-    const [removal] = suggestFrom(TAG_GROUPS, 'removal');
+    const [removal] = filterSuggestions(TAG_GROUPS, 'removal');
     expect(removal!.label).toBe('Removal');
     expect(removal!.items).toContain('spot-removal');
     expect(removal!.items).not.toContain('removal');
-    expect(suggestFrom(TAG_GROUPS, 'ROCK').flatMap((g) => g.items)).toEqual(['mana-rock']);
+    expect(filterSuggestions(TAG_GROUPS, 'ROCK').flatMap((g) => g.items)).toEqual(['mana-rock']);
   });
 });

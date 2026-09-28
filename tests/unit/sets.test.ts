@@ -63,7 +63,6 @@ describe('set search', () => {
   });
 
   it('ranks tokens, digital-only and supplemental sets below the main set', () => {
-    // Same tier (name prefix) and same release date: only the penalties separate them.
     expect(searchSets(SETS, 'modern horizons 2').map((s) => s.code)).toEqual(['mh2', 'h2r']);
     expect(searchSets(SETS, 'modern horizons 3').map((s) => s.code)).toEqual(['mh3', 'tmh3']);
     expect(searchSets(SETS, 'alchemy').map((s) => s.code)).toEqual(['ymid']);

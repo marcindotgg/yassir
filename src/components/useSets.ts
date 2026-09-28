@@ -1,26 +1,21 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import type { SetSummary } from '../lib/sets';
 import { requestSets } from '../messaging';
-import type { SetsStatus } from './SetAutocomplete';
 
-interface SetsState {
+export interface SetList {
   sets: SetSummary[];
-  status: SetsStatus;
+  status: 'loading' | 'ready' | 'error';
   error?: string;
+  reload: () => void;
 }
 
-/**
- * The Scryfall set list, fetched and cached by the background worker. A stale
- * cache still counts as ready — the dropdown works, it is just a day behind.
- */
-export function useSets(): SetsState & { reload: () => void } {
-  const [state, setState] = useState<SetsState>({ sets: [], status: 'loading' });
+export function useSets(): SetList {
+  const [state, setState] = useState<Omit<SetList, 'reload'>>({ sets: [], status: 'loading' });
 
   const load = useCallback((force: boolean) => {
-    setState((s) => ({ ...s, status: 'loading' }));
-    void requestSets(force).then((res) => {
-      if (res.sets.length > 0) setState({ sets: res.sets, status: 'ready' });
-      else setState({ sets: [], status: 'error', ...(res.error ? { error: res.error } : {}) });
+    setState((current) => ({ ...current, status: 'loading' }));
+    void requestSets(force).then(({ sets, error }) => {
+      setState(sets.length > 0 ? { sets, status: 'ready' } : { sets: [], status: 'error', error });
     });
   }, []);
 

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { describe as describeNode } from '../../src/lib/query-dictionary';
+import { describeNode, type SetNameLookup } from '../../src/lib/query-dictionary';
 import { parseQuery, topLevel, type Term } from '../../src/lib/query-parse';
 import { readQuery, removeCondition, writeQuery } from '../../src/lib/query-sync';
 import { buildQuery, EMPTY_QUERY, toggleColorOption, type QueryState } from '../../src/lib/scryfall-syntax';
 
 const conditions = (q: string) => topLevel(parseQuery(q)).map((n) => q.slice(n.start, n.end));
-const extras = (q: string) => readQuery(q).extras.map((c) => c.text);
-const pins = (q: string, names = {}) => readQuery(q).extras.map((c) => describeNode(c.node, names).text);
-/** Edits the form the way a field would: from the query's own reading. */
+const otherConditions = (q: string) => readQuery(q).otherConditions.map((c) => c.text);
+const pins = (q: string, setName?: SetNameLookup) => readQuery(q).otherConditions.map((c) => describeNode(c.node, setName).text);
 const edit = (q: string, patch: Partial<QueryState>) => writeQuery(q, { ...readQuery(q).state, ...patch });
 
 describe('query parser', () => {
@@ -31,7 +30,6 @@ describe('query parser', () => {
   });
 
   it('binds AND tighter than OR, as Scryfall does', () => {
-    // Checked on the live API: `t:instant r:mythic or t:sorcery` = `(t:instant r:mythic) or t:sorcery`.
     const root = parseQuery('t:instant r:mythic or t:sorcery');
     expect(root?.kind).toBe('or');
     expect(conditions('t:instant r:mythic or t:sorcery')).toEqual(['t:instant r:mythic or t:sorcery']);
@@ -51,13 +49,13 @@ describe('query parser', () => {
 describe('reading the form out of the query', () => {
   it('fills every field it has a term for', () => {
     const q = 'bolt t:instant o:draw o:"a card" (c<=ur -c:c) mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
-    const { state, extras: rest } = readQuery(q);
+    const { state, otherConditions: rest } = readQuery(q);
     expect(rest).toEqual([]);
     expect(state).toEqual({
       ...EMPTY_QUERY,
       name: 'bolt',
       type: 'instant',
-      text: 'draw "a card"',
+      rulesText: 'draw "a card"',
       colors: ['U', 'R'],
       manaValue: '>=2',
       rarity: ['rare', 'mythic'],
@@ -82,13 +80,13 @@ describe('reading the form out of the query', () => {
       { colors: ['R', 'W'], type: 'instant' },
       { colors: ['G'], manaValue: '2' },
       { colorCombos: ['orzhov', 'izzet'], sets: ['mh3'], flags: ['foil', 'promo'], order: 'name' },
-      { text: 'draw "a card"', type: 'legendary creature', manaValue: '<3', priceMax: '2', priceCurrency: 'usd' },
+      { rulesText: 'draw "a card"', type: 'legendary creature', manaValue: '<3', priceMax: '2', priceCurrency: 'usd' },
       { name: "Urza's", power: '!=3', otag: 'removal ramp', year: '2020', direction: 'asc' },
     ];
     for (const s of states) {
       const state = { ...EMPTY_QUERY, ...s };
       const reading = readQuery(buildQuery(state));
-      expect(reading.extras).toEqual([]);
+      expect(reading.otherConditions).toEqual([]);
       expect(buildQuery(reading.state)).toBe(buildQuery(state));
     }
   });
@@ -96,7 +94,7 @@ describe('reading the form out of the query', () => {
   it('understands aliases, short forms and color nicknames', () => {
     expect(readQuery('type:elf oracle:flying cmc:3 rarity:m e:MH3 legal:pauper usd<=5 power>2 artist:avon function:removal').state).toMatchObject({
       type: 'elf',
-      text: 'flying',
+      rulesText: 'flying',
       manaValue: '3',
       rarity: ['mythic'],
       sets: ['mh3'],
@@ -116,7 +114,7 @@ describe('reading the form out of the query', () => {
   });
 
   it('pins what no field can show', () => {
-    expect(extras('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland r>=rare o:/draw a/ !fire foo:bar')).toEqual([
+    expect(otherConditions('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland r>=rare o:/draw a/ !fire foo:bar')).toEqual([
       '-t:creature',
       'c>=r',
       'c<=ur',
@@ -138,14 +136,13 @@ describe('reading the form out of the query', () => {
     const r = readQuery('f:modern f:legacy c=r c=izzet');
     expect(r.state.format).toBe('modern');
     expect(r.state.colors).toEqual(['R']);
-    expect(r.extras.map((c) => c.text)).toEqual(['f:legacy', 'c=izzet']);
+    expect(r.otherConditions.map((c) => c.text)).toEqual(['f:legacy', 'c=izzet']);
   });
 
   it('shows nothing in the form when the whole query is an OR', () => {
     const r = readQuery('t:instant r:mythic or t:sorcery');
     expect(r.state).toEqual(EMPTY_QUERY);
-    expect(r.extras).toHaveLength(1);
-    // …unless the OR is one field's own alternatives.
+    expect(r.otherConditions).toHaveLength(1);
     expect(readQuery('r:rare or r:mythic').state.rarity).toEqual(['rare', 'mythic']);
   });
 });
@@ -167,8 +164,8 @@ describe('writing the form into the query', () => {
   });
 
   it('edits a many-term field term by term', () => {
-    expect(edit('o:draw kw:flying', { text: 'draw a card' })).toBe('o:draw o:a o:card kw:flying');
-    expect(edit('o:draw kw:flying o:card', { text: 'draw' })).toBe('o:draw kw:flying');
+    expect(edit('o:draw kw:flying', { rulesText: 'draw a card' })).toBe('o:draw o:a o:card kw:flying');
+    expect(edit('o:draw kw:flying o:card', { rulesText: 'draw' })).toBe('o:draw kw:flying');
     expect(edit('is:foil t:elf is:promo', { flags: ['promo'] })).toBe('is:promo t:elf');
     expect(edit('is:foil t:elf', { flags: ['foil', 'promo'] })).toBe('is:foil is:promo t:elf');
     expect(edit('otag:removal t:elf', { otag: 'removal ramp' })).toBe('otag:removal otag:ramp t:elf');
@@ -180,7 +177,6 @@ describe('writing the form into the query', () => {
   });
 
   it('leaves the query alone when a change writes nothing new', () => {
-    // A price currency with no price, an operator with no value: nothing to write.
     expect(edit('t:elf', { priceCurrency: 'usd' })).toBe('t:elf');
     expect(edit('t:elf ', { manaValue: '' })).toBe('t:elf ');
   });
@@ -195,7 +191,6 @@ describe('writing the form into the query', () => {
     const state = readQuery(q).state;
     expect(writeQuery(q, { ...state, ...toggleColorOption(state, { kind: 'combo', value: 'izzet' }) })).toBe('c=izzet t:elf');
   });
-
 });
 
 describe('removing a pinned condition', () => {
@@ -206,7 +201,6 @@ describe('removing a pinned condition', () => {
     expect(removeCondition(q, at('foo:bar'))).toBe('t:elf kw:flying and -is:reprint');
     expect(removeCondition(q, at('t:elf'))).toBe('kw:flying and -is:reprint foo:bar');
     expect(removeCondition('t:elf', { start: 0, end: 99, text: 'kw:flying' })).toBe('t:elf');
-    // Read before more was typed in front of it: still found, by its text.
     expect(removeCondition(`t:elf ${q}`, at('foo:bar'))).toBe('t:elf t:elf kw:flying and -is:reprint');
   });
 });
@@ -246,13 +240,13 @@ describe('naming pinned conditions', () => {
   });
 
   it('names sets from the set list, and exact or excluded names', () => {
-    const names = { set: (code: string) => (code === 'mh3' ? 'Modern Horizons 3' : undefined) };
-    expect(pins('-s:mh3 in:xyz !"Lightning Bolt" -bolt', names)).toEqual(['not Set: Modern Horizons 3', 'Printed in: xyz', 'Exact name: “Lightning Bolt”', 'not Name: bolt']);
+    const setName = (code: string) => (code === 'mh3' ? 'Modern Horizons 3' : undefined);
+    expect(pins('-s:mh3 in:xyz !"Lightning Bolt" -bolt', setName)).toEqual(['not Set: Modern Horizons 3', 'Printed in: xyz', 'Exact name: “Lightning Bolt”', 'not Name: bolt']);
   });
 
   it('flags keywords Scryfall does not know, and stray brackets', () => {
     const q = 'foo:bar n:bolt kw:flying )';
-    expect(readQuery(q).extras.map((c) => describeNode(c.node))).toEqual([
+    expect(readQuery(q).otherConditions.map((c) => describeNode(c.node))).toEqual([
       { text: 'foo: bar', known: false },
       { text: 'n: bolt', known: false },
       { text: 'Keyword: flying', known: true },

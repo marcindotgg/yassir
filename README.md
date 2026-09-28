@@ -1,105 +1,33 @@
 # Scryfall Query Builder
 
-A standalone browser extension that adds an advanced search builder to
-[scryfall.com](https://scryfall.com): a form for Scryfall's search syntax and set-name
-autocomplete backed by the Scryfall API.
-
-It was split out of the [MTGenie extension](../extension), which keeps
-everything collection-related (ownership badges, price charts, the collection
-panel). This one touches nothing but Scryfall's search box and talks to no
-backend other than Scryfall's public API.
-
-## What it does
-
-- **Search modal** — focusing Scryfall's search box (the big one on the
-  homepage, the header one on every other page) opens a sheet with a copy of
-  the box on top, starting exactly over the original (same styles, text, caret
-  and logo), so it reads as the same input growing a panel. The box springs to
-  its resting place — up from the homepage hero, down a little from the header
-  — widening as it goes, the page blurs behind it and the panel unfolds below,
-  its contents rising in one after another. Closing plays that back onto the
-  original box. Both boxes stay in sync; Enter searches, Escape hands focus back
-  to Scryfall's box, a click outside closes it. The builder
-  lives in the sheet.
-- **Query builder** — name, rules text,
-  type, colors (a Select2-style multiselect of single colors, colorless and
-  named combinations like Izzet or Jund, always `c<=`), mana value, rarity, sets,
-  format, max price, power/toughness, artist, year, `is:` flags and sorting.
-  The query in the box is the only source of truth and the form is a two-way
-  view of it: type `t:elf` and the Type field says *elf*; change a field and
-  just that field's terms are rewritten in place, the rest of the query keeps
-  its text and order. So the form also comes back filled in after a reload or
-  on a results page. Presets set their own fields and leave the rest alone;
-  *Clear* empties the query; *Search* runs it.
-- **Other conditions** — whatever the query asks that no field can show
-  (`kw:flying`, `-t:creature`, `otag:removal`, an OR group…) gets a pin
-  under the form, named from a dictionary of Scryfall's keywords
-  ("Keyword: flying", "not Type: creature", "Fetch land"), with a button that
-  takes exactly that condition out of the query. A keyword Scryfall doesn't
-  know gets a dashed red pin: Scryfall would ignore it.
-- **Set autocomplete** — type a set name or code and pick from a ranked list
-  (set symbol, name, code, year, card count). Pick several and they become
-  `(s:mh3 or s:ltr)`. The list comes from `https://api.scryfall.com/sets`,
-  fetched by the background worker and cached in `storage.local` for 24 hours,
-  so normal use costs one request a day.
-
-## Layout
-
-```
-entrypoints/        background.ts (set list + cache), scryfall.content.tsx
-src/background/     the Scryfall /sets fetch, its cache and TTL
-src/content/        selectors for both search boxes, mounting the modal
-src/components/     Preact: SearchModal, QueryBuilder, SetAutocomplete, useSets
-src/lib/            pure helpers: query parsing, form <-> query sync, the keyword
-                    dictionary behind the pins, set parsing + search
-src/ui/             shadow-root mounting, theme detection, styles + tokens
-tests/unit/         vitest + happy-dom
-tests/e2e/smoke.mjs Playwright run against live scryfall.com
-```
+A browser extension for Chrome and Firefox that turns the search box on [scryfall.com](https://scryfall.com) into a query builder. Focusing the search box opens a panel with fields for name, type, colors, mana value, rarity, sets, format, price and more. The query stays plain text you can edit: typing updates the form, the form rewrites only its own terms, and conditions the form can't show appear as removable pins.
 
 ## Development
 
+Requires Node.js 22 or newer.
+
 ```sh
 npm install
-npm run dev              # Chrome, live reload
-npm run dev:firefox
-npm run build            # dist/chrome-mv3
-npm run build:firefox    # dist/firefox-mv3
+npm run dev          # Chrome with live reload (dev:firefox for Firefox)
+npm run build        # production build in dist/ (build:firefox, build:all)
 npm run typecheck
-npm test                 # vitest
-npm run test:e2e         # needs a build first; see below
+npm test             # unit tests (Vitest)
+npm run test:e2e     # smoke test on live scryfall.com
 ```
 
-The smoke run loads the built extension into Playwright's Chromium (Google
-Chrome ≥ 137 ignores `--load-extension`) and drives the real homepage:
+The e2e test loads `dist/chrome-mv3` into Playwright's Chromium, so run `npm run build` and `npx playwright install chromium` first. Set `HEADED=1` to watch it; screenshots go to `tests/e2e/.state/`.
 
-```sh
-npx playwright install chromium
-npm run build
-npm run test:e2e         # HEADED=1 to watch it
-```
+## How it works
 
-Screenshots and `results.json` land in `tests/e2e/.state/`.
+- The query text is the single source of truth. `src/lib/query-parse.ts` parses it, `readQuery` in `src/lib/query-sync.ts` turns it into form state, and `writeQuery` rewrites only the terms of the fields that changed.
+- `src/lib/scryfall-syntax.ts` defines the form state and the terms each field writes. `src/lib/query-dictionary.ts` names the conditions shown as pins.
+- The UI is Preact (`src/components`), mounted in a shadow root by `src/content/mount.ts`. The background worker (`src/background/sets.ts`) fetches the set list from the Scryfall API and caches it for a day.
 
-## Notes on the host page
+## Contributing
 
-A few things about scryfall.com shape the implementation, and all are easy to
-trip over again:
-
-- **Its CSP has `style-src` without `'unsafe-inline'`**, so `style` attributes
-  on elements in the page are silently dropped. The shadow host is therefore
-  laid out from a `:host` rule in `src/ui/styles.css`, not from a style
-  attribute — and those declarations need `!important`, because WXT resets the
-  host with `:host { all: initial !important }`. Positions set from script
-  (`el.style.top = …`, Preact's `style={{…}}`) are CSSOM writes and do work.
-- **It binds single-letter keyboard shortcuts on the document.** Keys typed in
-  our shadow root reach it with the host as their target, so it takes them for
-  shortcuts (one jumps to /advanced). The modal stops key events from leaving it.
-- **Scryfall exposes no theme class.** Its homepage hero is dark for everyone,
-  painted by a gradient on `div.homepage`, while `div.main` behind it is light.
-  So `src/ui/theme.ts` reads the background actually painted behind the search
-  form — colour or gradient — and picks dark or light by luminance.
-
-The Scryfall API is called only from the background worker. Scryfall rejects
-requests that send a generic User-Agent; `fetch()` cannot set that header, but
-the browser supplies its own, which their API accepts.
+- Keep `src/lib` free of DOM and browser APIs, and cover changes there with unit tests.
+- Run `npm run typecheck` and `npm test` before opening a pull request, and `npm run test:e2e` when you change the UI.
+- A few things about scryfall.com are easy to trip over:
+  - Its CSP drops `style` attributes, so the shadow host is laid out by the `:host` rule in `src/ui/styles.css`. Styles set from script still work.
+  - It binds single-letter keyboard shortcuts on the document, so the modal stops key events from leaving it.
+  - It has no theme class. `src/ui/theme.ts` picks light or dark from the background painted behind the search box.

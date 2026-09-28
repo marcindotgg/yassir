@@ -1,9 +1,3 @@
-// Playwright smoke run against live scryfall.com with the built extension loaded.
-// Build first:  npx wxt build          (→ dist/chrome-mv3)
-// Then:         node tests/e2e/smoke.mjs
-//
-// Google Chrome >= 137 ignores --load-extension, so this uses Playwright's own
-// Chromium build: npx playwright install chromium
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -23,7 +17,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqb-e2e-'));
 const ctx = await chromium.launchPersistentContext(userDataDir, {
   headless: process.env.HEADED !== '1',
-  channel: 'chromium',
+  channel: 'chromium', // Google Chrome 137+ ignores --load-extension
   viewport: { width: 1280, height: 900 },
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
@@ -42,22 +36,19 @@ const step = async (name, fn) => {
   }
 };
 
-/** Runs `fn` in the page and returns its result; shorthand for the shadow-root pokes below. */
 const inPage = (fn, arg) => page.evaluate(fn, arg);
 const shadowText = () => inPage(() => document.querySelector('scryfall-query-builder')?.shadowRoot?.textContent ?? '');
 const mirrorValue = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value);
-/** Waits for the query in the modal's box to match `re` (a RegExp source). */
 const waitQuery = (re) =>
   page.waitForFunction((src) => new RegExp(src).test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror')?.value ?? ''), re, { timeout: 5000 });
-/** The value of the builder's text field whose label starts with `label`. */
 const fieldValue = (label) =>
   inPage((l) => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    return [...root.querySelectorAll('label.sqb-field')].find((f) => f.textContent.startsWith(l))?.querySelector('input')?.value ?? null;
+    return [...root.querySelectorAll('.sqb-field')].find((f) => f.querySelector('.sqb-label')?.textContent.startsWith(l))?.querySelector('input')?.value ?? null;
   }, label);
-const colorChips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));
+const fieldInput = (label) => page.locator('.sqb-field', { has: page.locator('.sqb-label', { hasText: label }) }).locator('input').first();
+const colorChips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));
 const pinTexts = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin')].map((c) => c.querySelector('.sqb-pin-text').textContent));
-/** The "Other conditions" section: null when it isn't there, else its classes. */
 const pinSection = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal')?.className ?? null);
 
 await step('mounts on the homepage', async () => {
@@ -101,7 +92,6 @@ await step('focusing the search box opens the modal over it', async () => {
     };
   });
   await page.screenshot({ path: path.join(OUT, 'modal.png') });
-  // The illusion only holds if the copy starts exactly on the original.
   if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror starts off by ${geo.dx}px / ${geo.dy}px`);
   if (geo.value !== 't:instant' || !geo.focused || !geo.font || !geo.hidden || !geo.widened) throw new Error(JSON.stringify(geo));
   return 'mirror starts on top of input#q, same text, focused; original hidden; widens open';
@@ -120,7 +110,7 @@ await step('typing in the modal writes through to the real box', async () => {
   return value;
 });
 
-/** Every row of the open list `sel` must be on top where it is drawn, and not cut off by the modal body. */
+/** Every visible row of the open list must be on top where it is drawn, not covered or cut off by the modal body. */
 const listOnTop = (sel) =>
   inPage((selector) => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
@@ -132,7 +122,7 @@ const listOnTop = (sel) =>
     const bad = [...list.querySelectorAll('button')]
       .filter((row) => {
         const r = row.getBoundingClientRect();
-        return r.bottom > box.top && r.top < box.bottom; // rows scrolled into the list's view
+        return r.bottom > box.top && r.top < box.bottom;
       })
       .filter((row) => {
         const r = row.getBoundingClientRect();
@@ -147,18 +137,17 @@ await step('the set list loads from api.scryfall.com', async () => {
   await page.waitForFunction(
     () => {
       const root = document.querySelector('scryfall-query-builder')?.shadowRoot;
-      const input = root?.querySelector('.sqb-ac input[role=combobox]');
+      const input = root?.querySelector('.sqb-sets input[role=combobox]');
       return input && !/Loading/.test(input.placeholder);
     },
     null,
     { timeout: 30000 },
   );
   await typeSet('modern horizons');
-  await page.waitForFunction(() => (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-ac .sqb-ac-item').length ?? 0) > 0, null, { timeout: 8000 });
+  await page.waitForFunction(() => (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-sets .sqb-option').length ?? 0) > 0, null, { timeout: 8000 });
   const rows = await inPage(() =>
-    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ac .sqb-ac-item')].slice(0, 3).map((b) => b.querySelector('.sqb-ac-name').textContent),
+    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-option')].slice(0, 3).map((b) => b.querySelector('.sqb-option-name').textContent),
   );
-  // The main sets must outrank their token/promo/supplemental children.
   if (rows[0] !== 'Modern Horizons 3') throw new Error(`unexpected ranking: ${rows.join(' | ')}`);
   return rows.join(' | ');
 });
@@ -166,7 +155,7 @@ await step('the set list loads from api.scryfall.com', async () => {
 async function typeSet(value) {
   await inPage((v) => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    const input = root.querySelector('.sqb-ac input[role=combobox]');
+    const input = root.querySelector('.sqb-sets input[role=combobox]');
     input.focus();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, v);
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -177,9 +166,9 @@ await step('a set typed into the query shows as a chip; a picked one joins it in
   const chips = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-chip')].map((c) => c.textContent));
   if (!chips.some((c) => /ltr/i.test(c))) throw new Error(`set chips: ${chips}`);
   await page.screenshot({ path: path.join(OUT, 'set-dropdown.png') });
-  const covered = await listOnTop('.sqb-ac .sqb-ac-list');
+  const covered = await listOnTop('.sqb-sets .sqb-dropdown');
   if (covered) throw new Error(`set list: ${covered}`);
-  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-ac .sqb-ac-item').click());
+  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-sets .sqb-option').click());
   await waitQuery('^t:instant \\(s:ltr or s:mh3\\)$');
   const value = await page.inputValue('input#q');
   if (value !== (await mirrorValue())) throw new Error(`input#q holds ${value}`);
@@ -244,66 +233,74 @@ await step('retyping the only condition updates its pin in place, once typing pa
 });
 
 await step('typing into a field keeps its spaces and operators while the query follows', async () => {
-  const field = (label) => page.locator('label.sqb-field', { hasText: label }).locator('input');
-  await field('Rules text').click();
+  await fieldInput('Rules text').click();
   await page.keyboard.type('draw a card');
   await waitQuery('^t:instant s:mh3 o:draw o:a o:card$');
   const text = await fieldValue('Rules text');
   if (text !== 'draw a card') throw new Error(`Rules text field holds ${JSON.stringify(text)}`);
-  // An operator picked before its value stays picked; the value brings both in.
-  await page.locator('.sqb-field', { hasText: 'Mana value' }).locator('select').selectOption('>=');
-  await page.locator('.sqb-field', { hasText: 'Mana value' }).locator('input').fill('3');
+  await fieldInput('Mana value').click();
+  await page.keyboard.type('>=');
+  const operator = await fieldValue('Mana value');
+  if (operator !== '>=') throw new Error(`Mana value field holds ${JSON.stringify(operator)}`);
+  await page.keyboard.type('3');
   await waitQuery('^t:instant s:mh3 o:draw o:a o:card mv>=3$');
-  // Clearing the field takes its terms out again.
-  await field('Rules text').fill('');
-  await page.locator('.sqb-field', { hasText: 'Mana value' }).locator('input').fill('');
+  await fieldInput('Rules text').fill('');
+  await fieldInput('Mana value').fill('');
   await waitQuery('^t:instant s:mh3$');
   return 'o:draw o:a o:card, then mv>=3, then both gone';
 });
 
-await step('the colors multiselect: groups exclude each other, Escape only closes its list', async () => {
-  const preview = mirrorValue;
-  const chips = colorChips;
-  const pick = async (label) => page.locator('.sqb-ms-list button', { hasText: label }).first().click();
-  const waitPreview = waitQuery;
+await step('oracle tag suggestions complete the word being typed', async () => {
+  await fieldInput('Oracle tag').click();
+  await page.keyboard.type('rock');
+  await page.locator('.sqb-dropdown .sqb-option', { hasText: 'mana-rock' }).click();
+  await waitQuery('^t:instant s:mh3 otag:mana-rock$');
+  const listOpen = await inPage(() => !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-dropdown'));
+  if (listOpen) throw new Error('the list should close once a suggestion is picked');
+  await fieldInput('Oracle tag').fill('');
+  await waitQuery('^t:instant s:mh3$');
+  return 'rock → mana-rock, list closed, then cleared';
+});
 
-  await page.locator('.sqb-ms-input').click();
-  await page.waitForSelector('.sqb-ms-list', { timeout: 3000 });
+await step('the colors multiselect: groups exclude each other, Escape only closes its list', async () => {
+  const pick = async (label) => page.locator('.sqb-multiselect-list button', { hasText: label }).first().click();
+
+  await page.locator('.sqb-multiselect-input').click();
+  await page.waitForSelector('.sqb-multiselect-list', { timeout: 3000 });
   await pick('Izzet');
   await pick('Boros');
-  await waitPreview('\\(c=izzet or c=boros\\)');
-  const covered = await listOnTop('.sqb-ms-list');
+  await waitQuery('\\(c=izzet or c=boros\\)');
+  const covered = await listOnTop('.sqb-multiselect-list');
   if (covered) throw new Error(`colors list: ${covered}`);
-  const groups = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-ms-group-label')].map((g) => g.textContent));
+  const groups = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-group-label')].map((g) => g.textContent));
   if (groups.join('|') !== 'Colors|Guilds|Shards|Wedges|Four colors|Five colors') throw new Error(`groups: ${groups}`);
   await pick('Red');
-  await waitPreview('(^| )c<=r( |$)');
-  if ((await preview()).includes('izzet')) throw new Error(`a single color should clear the combinations: ${await preview()}`);
+  await waitQuery('(^| )c=r( |$)');
+  if ((await mirrorValue()).includes('izzet')) throw new Error(`a single color should clear the combinations: ${await mirrorValue()}`);
   await pick('Jund');
-  await waitPreview('c=jund');
-  if (/c<=r\b/.test(await preview())) throw new Error(`a combination should clear the single colors: ${await preview()}`);
+  await waitQuery('c=jund');
+  if (/(^| )c=r\b/.test(await mirrorValue())) throw new Error(`a combination should clear the single colors: ${await mirrorValue()}`);
   await pick('Colorless');
-  await waitPreview('c:c');
-  const afterColorless = await chips();
+  await waitQuery('c=c');
+  const afterColorless = await colorChips();
   if (afterColorless.join('|') !== 'Colorless') throw new Error(`chips after colorless: ${afterColorless}`);
   await page.screenshot({ path: path.join(OUT, 'colors.png') });
 
   await page.keyboard.press('Escape');
   const state = await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    return { list: !!root.querySelector('.sqb-ms-list'), modal: !!root.querySelector('.sqb-mirror') };
+    return { list: !!root.querySelector('.sqb-multiselect-list'), modal: !!root.querySelector('.sqb-mirror') };
   });
   if (state.list || !state.modal) throw new Error(`Escape should close only the list: ${JSON.stringify(state)}`);
-  return `chips: ${afterColorless.join(', ')}; ${await preview()}`;
+  return `chips: ${afterColorless.join(', ')}; ${await mirrorValue()}`;
 });
 
-await step('a preset writes its fields into the query, keeping the rest', async () => {
-  await inPage(() => {
-    const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    [...root.querySelectorAll('button')].find((b) => /Red instants/.test(b.textContent)).click();
-  });
-  // Colorless gives way to red where it stood; the type and set stay put.
-  await waitQuery('^t:instant s:mh3 c<=r$');
+await step('picking a color replaces colorless where it stood', async () => {
+  await page.locator('.sqb-multiselect-input').click();
+  await page.waitForSelector('.sqb-multiselect-list', { timeout: 3000 });
+  await page.locator('.sqb-multiselect-list button', { hasText: 'Red' }).first().click();
+  await waitQuery('^t:instant s:mh3 c=r$');
+  await page.keyboard.press('Escape');
   await page.screenshot({ path: path.join(OUT, 'builder.png') });
   const [value, mirror] = await Promise.all([page.inputValue('input#q'), mirrorValue()]);
   if (value !== mirror) throw new Error(`box: ${value} / mirror: ${mirror}`);
@@ -330,7 +327,7 @@ await step('Enter in the modal runs the search', async () => {
   await page.keyboard.type(' kw:haste');
   await Promise.all([page.waitForURL(/\/search\?/, { timeout: 15000 }), page.keyboard.press('Enter')]);
   const q = new URL(page.url()).searchParams.get('q');
-  if (!q?.includes('c<=r')) throw new Error(`searched for ${q}`);
+  if (!q?.includes('c=r')) throw new Error(`searched for ${q}`);
   return q;
 });
 

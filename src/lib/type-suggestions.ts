@@ -1,9 +1,6 @@
-export interface TypeGroup {
-  label: string;
-  items: readonly string[];
-}
+import type { SuggestionGroup } from './suggestions';
 
-export const TYPE_GROUPS: readonly TypeGroup[] = [
+export const TYPE_GROUPS: readonly SuggestionGroup[] = [
   {
     label: 'Card types',
     items: ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Planeswalker', 'Battle', 'Tribal', 'Legendary', 'Basic Land'],
@@ -20,21 +17,3 @@ export const TYPE_GROUPS: readonly TypeGroup[] = [
     ],
   },
 ];
-
-/** The word being typed: everything after the last space. */
-export function splitLastWord(text: string): { head: string; word: string } {
-  const cut = text.lastIndexOf(' ') + 1;
-  return { head: text.slice(0, cut), word: text.slice(cut) };
-}
-
-/** Groups with the entries containing `word` (any case), minus an exact match; empty groups dropped. */
-export function suggestFrom(groups: readonly TypeGroup[], word: string): TypeGroup[] {
-  const q = word.toLowerCase();
-  return groups.map((g) => ({
-    label: g.label,
-    items: g.items.filter((i) => {
-      const l = i.toLowerCase();
-      return l.includes(q) && l !== q;
-    }),
-  })).filter((g) => g.items.length > 0);
-}

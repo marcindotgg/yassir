@@ -1,17 +1,12 @@
-// Pure helpers behind the query builder: the form's state and the terms each of
-// its fields writes into the query. No DOM, unit-tested.
-
 export interface QueryState {
   name: string;
-  text: string;
+  rulesText: string;
   type: string;
   colors: string[];
-  /** Names from COLOR_COMBOS (`izzet`, `jund`…). Each becomes its own term, so they AND together. */
   colorCombos: string[];
   colorless: boolean;
   manaValue: string;
   rarity: string[];
-  /** Set codes, lower-case, as picked in the autocomplete. */
   sets: string[];
   format: string;
   priceMax: string;
@@ -19,7 +14,6 @@ export interface QueryState {
   power: string;
   toughness: string;
   artist: string;
-  /** Scryfall Tagger's oracle tags (`removal`, `mana-rock`); each word is its own `otag:` term. */
   otag: string;
   year: string;
   flags: string[];
@@ -29,7 +23,7 @@ export interface QueryState {
 
 export const EMPTY_QUERY: QueryState = {
   name: '',
-  text: '',
+  rulesText: '',
   type: '',
   colors: [],
   colorCombos: [],
@@ -52,14 +46,11 @@ export const EMPTY_QUERY: QueryState = {
 
 export const COLORS = ['W', 'U', 'B', 'R', 'G'] as const;
 
-export interface ColorCombo {
-  /** The nickname Scryfall accepts as a color value: `c>=izzet`. */
+interface ColorCombo {
   name: string;
-  /** Its colors in WUBRG order, upper-case. */
   colors: string;
 }
 
-/** Scryfall's named color combinations, in the order the builder lists them. */
 export const COLOR_COMBO_GROUPS: readonly { label: string; combos: readonly ColorCombo[] }[] = [
   {
     label: 'Guilds',
@@ -117,60 +108,33 @@ export const FORMATS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'c
 export const FLAGS = ['foil', 'nonfoil', 'promo', 'reprint', 'firstprint', 'digital', 'fullart', 'showcase', 'extended', 'borderless', 'commander', 'reserved'] as const;
 export const ORDERS = ['name', 'set', 'released', 'rarity', 'color', 'usd', 'eur', 'cmc', 'power', 'toughness', 'edhrec', 'artist'] as const;
 
-const quote = (value: string): string => {
-  const v = value.trim();
-  if (!v) return '';
-  return /[\s"':()]/.test(v) ? `"${v.replace(/"/g, '\\"')}"` : v;
-};
-
-/** A word of the rules text or type field; `/…/` goes in as a regex, not quoted. */
-const textTerm = (key: string, word: string): string => (/^\/.+\/$/.test(word) ? `${key}:${word}` : `${key}:${quote(word)}`);
-
-/** A lone word goes into the query bare, the way people type it; anything the parser would take for syntax gets `name:"…"`. */
+export const DECIMAL = /^\d+(\.\d+)?$/;
 const BARE_NAME = /^[^\s"():<>=!\/-][^\s"():<>=!]*$/;
 
-const NUMBER = /^\d+(\.\d+)?$/;
-
-/** The form's fields, in the order buildQuery lays them out. */
-export const FIELDS = ['name', 'text', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'otag', 'year', 'flags', 'order', 'direction'] as const;
+export const FIELDS = ['name', 'rulesText', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'otag', 'year', 'flags', 'order', 'direction'] as const;
 export type FieldId = (typeof FIELDS)[number];
 
-/**
- * The terms each field writes, one per condition the query holds on its own
- * (every `o:` word, every `is:` flag), so the box can be edited term by term.
- */
+/** One term per condition, so the query can be edited term by term. */
 export const FIELD_TERMS: Record<FieldId, (state: QueryState) => string[]> = {
-  name: (s) => {
-    const name = s.name.trim();
-    if (!name) return [];
-    return [BARE_NAME.test(name) && !/^(or|and)$/i.test(name) ? name : `name:${quote(name)}`];
-  },
-  text: (s) => splitTerms(s.text).map((word) => textTerm('o', word)),
-  type: (s) => splitTerms(s.type).map((word) => textTerm('t', word)),
-  colors: (s) => {
-    if (s.colorless) return ['c=c'];
-    const letters = COLORS.filter((c) => s.colors.includes(c)).join('').toLowerCase();
-    // One color exactly: `c=r`; several at most, colorless left out: `(c<=ur -c:c)`.
-    const colors = letters.length > 1 ? [`(c<=${letters} -c:c)`] : letters ? [`c=${letters}`] : [];
-    // Any of the picked combinations: `(c=orzhov or c=izzet)`.
-    return [...colors, ...orGroup(s.colorCombos.map((name) => `c=${name}`))];
-  },
-  manaValue: (s) => compare('mv', s.manaValue),
-  rarity: (s) => orGroup(s.rarity.map((r) => `r:${r}`)),
+  name: (s) => nameTerms(s.name),
+  rulesText: (s) => splitWords(s.rulesText).map((word) => wordTerm('o', word)),
+  type: (s) => splitWords(s.type).map((word) => wordTerm('t', word)),
+  colors: colorTerms,
+  manaValue: (s) => comparisonTerms('mv', s.manaValue),
+  rarity: (s) => orGroup(s.rarity.map((rarity) => `r:${rarity}`)),
   sets: (s) => orGroup(s.sets.map((code) => `s:${code.trim().toLowerCase()}`)),
   format: (s) => (s.format ? [`f:${s.format}`] : []),
-  price: (s) => (NUMBER.test(s.priceMax.trim()) ? [`${s.priceCurrency}<=${s.priceMax.trim()}`] : []),
-  power: (s) => compare('pow', s.power),
-  toughness: (s) => compare('tou', s.toughness),
-  artist: (s) => (s.artist.trim() ? [`a:${quote(s.artist)}`] : []),
-  otag: (s) => splitTerms(s.otag).map((tag) => `otag:${quote(tag)}`),
-  year: (s) => compare('year', s.year),
+  price: (s) => (DECIMAL.test(s.priceMax.trim()) ? [`${s.priceCurrency}<=${s.priceMax.trim()}`] : []),
+  power: (s) => comparisonTerms('pow', s.power),
+  toughness: (s) => comparisonTerms('tou', s.toughness),
+  artist: (s) => (s.artist.trim() ? [`a:${quoteIfNeeded(s.artist)}`] : []),
+  otag: (s) => splitWords(s.otag).map((tag) => `otag:${quoteIfNeeded(tag)}`),
+  year: (s) => comparisonTerms('year', s.year),
   flags: (s) => s.flags.map((flag) => `is:${flag}`),
   order: (s) => (s.order ? [`order:${s.order}`] : []),
-  direction: (s) => (s.direction !== 'auto' ? [`direction:${s.direction}`] : []),
+  direction: (s) => (s.direction === 'auto' ? [] : [`direction:${s.direction}`]),
 };
 
-/** Builds a Scryfall query from the whole form. Returns '' when nothing is set. */
 export function buildQuery(state: QueryState): string {
   return FIELDS.flatMap((field) => FIELD_TERMS[field](state)).join(' ');
 }
@@ -179,43 +143,60 @@ export type ColorSelection = Pick<QueryState, 'colors' | 'colorless' | 'colorCom
 
 export type ColorOption = { kind: 'color'; value: (typeof COLORS)[number] } | { kind: 'colorless' } | { kind: 'combo'; value: string };
 
-/**
- * Toggles one option of the colors multiselect. The three kinds exclude each
- * other: picking colorless or a combination clears the single colors, and
- * picking a single color clears colorless and the combinations. Within a kind
- * the picks accumulate.
- */
-export function toggleColorOption(sel: ColorSelection, option: ColorOption): ColorSelection {
+export function toggleColorOption(selection: ColorSelection, option: ColorOption): ColorSelection {
   const none: ColorSelection = { colors: [], colorless: false, colorCombos: [] };
-  const flip = <T>(list: readonly T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   switch (option.kind) {
     case 'color':
-      return { ...none, colors: flip(sel.colors, option.value) };
+      return { ...none, colors: toggleItem(selection.colors, option.value) };
     case 'colorless':
-      return { ...none, colorless: !sel.colorless };
+      return { ...none, colorless: !selection.colorless };
     case 'combo':
-      return { ...none, colorCombos: flip(sel.colorCombos, option.value) };
+      return { ...none, colorCombos: toggleItem(selection.colorCombos, option.value) };
   }
 }
 
-/** [] | ['a'] | ['(a or b)'] — Scryfall ANDs bare terms, so alternatives need the group. */
+export function toggleItem<T>(list: readonly T[], item: T): T[] {
+  return list.includes(item) ? list.filter((other) => other !== item) : [...list, item];
+}
+
+function quoteIfNeeded(value: string): string {
+  const trimmed = value.trim();
+  return /[\s"':()]/.test(trimmed) ? `"${trimmed.replace(/"/g, '\\"')}"` : trimmed;
+}
+
+function nameTerms(name: string): string[] {
+  const trimmed = name.trim();
+  if (!trimmed) return [];
+  const canStandAlone = BARE_NAME.test(trimmed) && !/^(or|and)$/i.test(trimmed);
+  return [canStandAlone ? trimmed : `name:${quoteIfNeeded(trimmed)}`];
+}
+
+function wordTerm(key: string, word: string): string {
+  const isRegex = /^\/.+\/$/.test(word);
+  return `${key}:${isRegex ? word : quoteIfNeeded(word)}`;
+}
+
+function colorTerms({ colors, colorless, colorCombos }: QueryState): string[] {
+  if (colorless) return ['c=c'];
+  return [...singleColorTerms(colors), ...orGroup(colorCombos.map((combo) => `c=${combo}`))];
+}
+
+function singleColorTerms(colors: string[]): string[] {
+  const letters = COLORS.filter((color) => colors.includes(color)).join('').toLowerCase();
+  if (!letters) return [];
+  if (letters.length === 1) return [`c=${letters}`];
+  return [`(c<=${letters} -c:c)`];
+}
+
 function orGroup(terms: string[]): string[] {
-  if (terms.length === 0) return [];
-  if (terms.length === 1) return [terms[0] as string];
-  return [`(${terms.join(' or ')})`];
+  return terms.length > 1 ? [`(${terms.join(' or ')})`] : terms;
 }
 
-// "3", ">=3", "<2" -> "pow=3", "pow>=3", "pow<2"; a lone operator, still being typed, writes nothing.
-function compare(key: string, raw: string): string[] {
-  const m = raw.trim().match(/^(<=|>=|!=|=|<|>)?\s*(.*)$/);
-  return m?.[2] ? [`${key}${m[1] ?? '='}${m[2]}`] : [];
+function comparisonTerms(key: string, input: string): string[] {
+  const [, operator = '=', value] = input.trim().match(/^(<=|>=|!=|=|<|>)?\s*(.*)$/) ?? [];
+  return value ? [`${key}${operator}${value}`] : [];
 }
 
-/** `draw "a card"` -> ['draw', 'a card']. */
-function splitTerms(raw: string): string[] {
-  const out: string[] = [];
-  const re = /"([^"]+)"|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(raw))) out.push((m[1] ?? m[2] ?? '').trim());
-  return out.filter(Boolean);
+function splitWords(input: string): string[] {
+  return [...input.matchAll(/"([^"]+)"|(\S+)/g)].map((match) => (match[1] ?? match[2] ?? '').trim()).filter(Boolean);
 }

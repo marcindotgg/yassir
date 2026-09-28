@@ -1,12 +1,8 @@
 @import './tokens.css';
 
 /*
- * The host element is laid out from here rather than a `style` attribute:
- * Scryfall's CSP (style-src without 'unsafe-inline') throws those away. WXT
- * resets the host with `:host { all: initial !important }`, so these have to be
- * !important to land at all. The host is a zero-size fixed box at the end of
- * <body>; the modal inside positions itself against the viewport, above
- * everything Scryfall paints.
+ * Laid out here rather than with a style attribute, which Scryfall's CSP drops.
+ * !important because WXT resets the host with `:host { all: initial !important }`.
  */
 :host {
   display: block !important;
@@ -31,29 +27,9 @@
   box-sizing: border-box;
 }
 
-.sqb-panel {
-  background: var(--sqb-bg);
-  border: 1px solid var(--sqb-border);
-  border-radius: var(--sqb-radius);
-  padding: 12px;
-  margin: 12px 0;
-}
-
-.sqb-muted {
-  color: var(--sqb-text-muted);
-}
-.sqb-small {
-  font-size: 12px;
-}
 .sqb-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-.sqb-row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 .sqb-stack {
@@ -116,7 +92,31 @@
   background: var(--sqb-primary-soft);
   border-color: var(--sqb-primary);
 }
-/* Rarity buttons: a small glossy gem, lit from above, in the rarity's colour. */
+.sqb-btn-busy,
+.sqb-btn-busy:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sqb-action-strong);
+  border-color: var(--sqb-action-strong);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  transform: translateY(1px);
+  cursor: progress;
+}
+.sqb-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sqb-spin 0.7s linear infinite;
+}
+@keyframes sqb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sqb-rarity-btn {
   display: inline-flex;
   align-items: center;
@@ -144,30 +144,8 @@
 .sqb-rarity-special {
   background: radial-gradient(circle at 50% 20%, #d9a6ff, #7a35b8);
 }
-/* Clicked and waiting on the page it sent off: held down, with a spinner. */
-.sqb-btn-busy,
-.sqb-btn-busy:hover {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--sqb-action-strong);
-  border-color: var(--sqb-action-strong);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-  transform: translateY(1px);
-  cursor: progress;
-}
-.sqb-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: sqb-spin 0.7s linear infinite;
-}
-@keyframes sqb-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.sqb-flag-btn {
+  text-transform: capitalize;
 }
 
 .sqb-input,
@@ -217,19 +195,26 @@
   color: var(--sqb-text);
   font-size: 12px;
 }
-
-/* --- search modal -------------------------------------------------------- */
+.sqb-chip-remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  opacity: 0.6;
+}
+.sqb-chip-remove:hover {
+  opacity: 1;
+  color: var(--sqb-danger);
+}
 
 /*
- * Motion. Opening: the sheet starts shifted back onto Scryfall's box and clipped
- * to just that box, so the first frame looks like nothing happened. The box
- * springs to its resting place while widening to the sheet, the page behind
- * blurs away, the sheet unfolds below the box, and its contents rise in one
- * after another. Closing plays the same path back in 180ms and lands on the
- * original box again. The --sqb-* position vars come from the component.
+ * The sheet opens shifted back onto Scryfall's box and clipped to it (the --sqb-* position
+ * variables come from src/ui/sheet.ts), then travels, widens and unfolds; closing plays it back.
  */
 .sqb-modal {
-  /* A critically-damped-ish spring (ζ≈0.8): overshoots by ~1.5% and settles. */
   --sqb-spring: linear(0, 0.026, 0.091, 0.18, 0.28, 0.383, 0.483, 0.576, 0.66, 0.733, 0.796, 0.848, 0.891, 0.926, 0.953, 0.973, 0.988, 0.999, 1.007, 1.011, 1.014, 1.015, 1.015, 1.014, 1.013, 1.012, 1.01, 1.009, 1.007, 1.006, 1.005, 1.004, 1);
   --sqb-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sqb-in: cubic-bezier(0.5, 0, 0.75, 0);
@@ -253,14 +238,11 @@
   }
 }
 
-/* top/left/width come from the component: the head lines the copied box up with
-   Scryfall's own. */
 .sqb-sheet {
-  /* Here, not on .sqb-modal: they read the --sqb-in-* vars the component sets on this element. */
-  --sqb-clip-box: inset(var(--sqb-in-top) var(--sqb-in-right) calc(100% - var(--sqb-in-bottom)) var(--sqb-in-left) round var(--sqb-in-radius));
-  --sqb-clip-head: inset(0 0 calc(100% - var(--sqb-head)) 0 round var(--sqb-radius));
-  /* Wider than the sheet so its shadow isn't cut off once open. */
-  --sqb-clip-open: inset(-40px round var(--sqb-radius));
+  /* Declared here, where the --sqb-input-* variables they read are set. */
+  --sqb-clip-box: inset(var(--sqb-input-top) var(--sqb-input-right) calc(100% - var(--sqb-input-bottom)) var(--sqb-input-left) round var(--sqb-input-radius));
+  --sqb-clip-head: inset(0 0 calc(100% - var(--sqb-head-height)) 0 round var(--sqb-radius));
+  --sqb-clip-open: inset(-40px round var(--sqb-radius)); /* leaves room for the shadow */
 
   position: absolute;
   display: flex;
@@ -276,7 +258,7 @@
 }
 @keyframes sqb-travel {
   from {
-    transform: translateY(var(--sqb-shift));
+    transform: translateY(var(--sqb-start-shift));
   }
 }
 @keyframes sqb-unfold {
@@ -296,11 +278,10 @@
 .sqb-sheet-head {
   position: relative;
   flex: none;
-  padding-top: 11px; /* PAD minus the sheet border, so the box lands on the original */
+  padding-top: 11px; /* SHEET_PADDING minus the sheet border, see src/ui/sheet.ts */
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sqb-border);
 }
-/* Holds the copied box and its logo; ends up spanning the sheet. */
 .sqb-box {
   position: relative;
   margin: 0 11px;
@@ -313,7 +294,6 @@
     width: var(--sqb-box-width);
   }
 }
-/* Everything visual is copied from Scryfall's box at open time. */
 .sqb-mirror {
   display: block;
   box-sizing: border-box;
@@ -345,25 +325,23 @@
   gap: 18px;
 }
 
-/* The contents rise in once the unfold has passed the head, 25ms apart. */
-.sqb-rise,
-.sqb-qb > * {
+.sqb-builder > * {
   animation: sqb-rise 0.26s var(--sqb-out) both;
   animation-delay: calc(150ms + var(--sqb-i, 0) * 25ms);
 }
-.sqb-qb > :nth-child(1) {
+.sqb-builder > :nth-child(1) {
   --sqb-i: 2;
 }
-.sqb-qb > :nth-child(2) {
+.sqb-builder > :nth-child(2) {
   --sqb-i: 3;
 }
-.sqb-qb > :nth-child(3) {
+.sqb-builder > :nth-child(3) {
   --sqb-i: 4;
 }
-.sqb-qb > :nth-child(4) {
+.sqb-builder > :nth-child(4) {
   --sqb-i: 5;
 }
-.sqb-qb > :nth-child(n + 5) {
+.sqb-builder > :nth-child(n + 5) {
   --sqb-i: 6;
 }
 @keyframes sqb-rise {
@@ -372,8 +350,6 @@
     transform: translateY(6px);
   }
 }
-
-/* --- closing: the same path, backwards ----------------------------------- */
 
 .sqb-closing {
   pointer-events: none;
@@ -399,7 +375,7 @@
     clip-path: var(--sqb-clip-head);
   }
   to {
-    transform: translateY(var(--sqb-shift));
+    transform: translateY(var(--sqb-start-shift));
     clip-path: var(--sqb-clip-box);
   }
 }
@@ -432,85 +408,63 @@
   }
 }
 
-/* --- query builder ------------------------------------------------------- */
-
 /*
- * Dropdowns and stacking. The rise-in animation makes every section of the body
- * (and every child of .sqb-qb) its own stacking context, so a list hanging off a
- * field would sit under whatever section comes next, whatever its z-index. The
- * block holding the focused field — every dropdown here is open only while its
- * input has focus — is lifted above its siblings instead, at each level.
+ * The rise-in animation makes every section its own stacking context, so a dropdown would sit
+ * under the next section whatever its z-index. The section holding the focused field is lifted instead.
  */
 .sqb-sheet-body > :focus-within,
 .sqb-sheet-body > * > :focus-within,
-.sqb-qb > :focus-within,
-.sqb-qb-cols > :focus-within,
-.sqb-qb-col > :focus-within {
+.sqb-builder > :focus-within,
+.sqb-builder-columns > :focus-within,
+.sqb-builder-column > :focus-within {
   position: relative;
   z-index: 5;
 }
-/*
- * Two columns: on the left what's printed on the card, in the order it's
- * printed (name, cost, type line, rarity and set, rules text, P/T); on the
- * right, set off by a rule, everything else. One column when narrow.
- */
-.sqb-qb-cols {
+.sqb-builder-columns {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 20px;
   align-items: start;
 }
-.sqb-qb-col {
+.sqb-builder-column {
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
 }
-.sqb-qb-col-aside {
+.sqb-builder-aside {
   padding-left: 20px;
   border-left: 1px solid var(--sqb-border);
 }
 @media (max-width: 640px) {
-  .sqb-qb-cols {
+  .sqb-builder-columns {
     grid-template-columns: minmax(0, 1fr);
   }
-  .sqb-qb-col-aside {
+  .sqb-builder-aside {
     padding-left: 0;
     padding-top: 12px;
     border-left: 0;
     border-top: 1px solid var(--sqb-border);
   }
 }
-/* Two fields read as one line of the card: colors with mana value, power with toughness. */
-.sqb-qb-pair {
+.sqb-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   align-items: start;
 }
-.sqb-qb-pair-mana {
+.sqb-pair-mana {
   grid-template-columns: minmax(0, 1fr) auto;
 }
-/* Flags cut across both columns, so they sit under a rule of their own. */
-.sqb-qb-flags {
+.sqb-flags {
   margin-top: 4px;
   padding-top: 12px;
   border-top: 1px solid var(--sqb-border);
 }
-.sqb-flag {
-  text-transform: capitalize;
-}
-/* Clear, then Search, at the bottom right where the form ends. */
-.sqb-qb-actions {
+.sqb-actions {
   justify-content: flex-end;
 }
-/*
- * Conditions in the query that no field shows. The section is there only while
- * it has pins: typed in later, it opens up by its own height (a 0fr -> 1fr grid
- * row, with the flex gap above it taken back) rather than pushing in at full
- * size, and folds away the same way when its last pin goes. Present when the
- * sheet opens, it just rises in with the rest (see .sqb-qb > *).
- */
+
 .sqb-reveal {
   display: grid;
   grid-template-rows: 1fr;
@@ -522,17 +476,17 @@
 .sqb-reveal-exit > * {
   overflow: hidden;
 }
-.sqb-qb > .sqb-reveal-enter {
+.sqb-builder > .sqb-reveal-enter {
   animation: sqb-reveal 0.28s var(--sqb-out) both;
 }
-.sqb-qb > .sqb-reveal-exit {
+.sqb-builder > .sqb-reveal-exit {
   animation: sqb-reveal 0.18s var(--sqb-in) reverse both;
   pointer-events: none;
 }
 @keyframes sqb-reveal {
   from {
     grid-template-rows: 0fr;
-    margin-top: -8px; /* .sqb-stack's gap */
+    margin-top: -8px; /* takes back .sqb-stack's gap */
     opacity: 0;
   }
 }
@@ -563,18 +517,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* A keyword Scryfall doesn't know: it will ignore the condition. */
 .sqb-pin-unknown {
   border-style: dashed;
   border-color: var(--sqb-danger);
 }
 
-/* --- colors multiselect -------------------------------------------------- */
-
-.sqb-ms {
+.sqb-multiselect {
   position: relative;
 }
-.sqb-ms-box {
+.sqb-multiselect-box {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -588,11 +539,11 @@
   border-radius: var(--sqb-radius-sm);
   cursor: text;
 }
-.sqb-ms-box:focus-within {
+.sqb-multiselect-box:focus-within {
   border-color: var(--sqb-primary);
   box-shadow: 0 0 0 3px var(--sqb-primary-soft);
 }
-.sqb-ms-input {
+.sqb-multiselect-input {
   flex: 1 1 48px;
   min-width: 48px;
   padding: 2px 0;
@@ -602,7 +553,7 @@
   color: var(--sqb-text);
   font: inherit;
 }
-.sqb-ms-caret {
+.sqb-multiselect-caret {
   position: absolute;
   right: 8px;
   top: 50%;
@@ -611,22 +562,31 @@
   color: var(--sqb-text-muted);
   pointer-events: none;
 }
-/* Wider than the grid cell it hangs from, so names and letters fit. */
-.sqb-ms-list {
+.sqb-multiselect-list {
   min-width: 240px;
 }
-.sqb-ms-group + .sqb-ms-group {
+.sqb-multiselect-group + .sqb-multiselect-group {
   margin-top: 4px;
   padding-top: 4px;
   border-top: 1px solid var(--sqb-border);
 }
-.sqb-ms-group-label {
+.sqb-multiselect-group-label {
   padding: 4px 7px 2px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--sqb-text-muted);
+}
+.sqb-multiselect-list .sqb-option {
+  border: 1px solid transparent;
+}
+.sqb-multiselect-list .sqb-option.sqb-option-selected {
+  border-color: var(--sqb-ok);
+}
+.sqb-option-selected .sqb-option-name {
+  color: var(--sqb-ok);
+  font-weight: 600;
 }
 .sqb-pie {
   flex: none;
@@ -641,28 +601,14 @@
   width: 22px;
   height: 22px;
 }
-/* Picked rows: a green border and name instead of a tick. The border is always
-   there (transparent) so picking a row doesn't shift anything. */
-.sqb-ms-list .sqb-ac-item {
-  border: 1px solid transparent;
-}
-.sqb-ms-list .sqb-ac-item.sqb-ms-selected {
-  border-color: var(--sqb-ok);
-}
-.sqb-ms-selected .sqb-ac-name {
-  color: var(--sqb-ok);
-  font-weight: 600;
-}
 
-/* --- set autocomplete ---------------------------------------------------- */
-
-.sqb-ac {
+.sqb-combobox {
   position: relative;
 }
-.sqb-ac > .sqb-input {
+.sqb-combobox > .sqb-input {
   width: 100%;
 }
-.sqb-ac-list {
+.sqb-dropdown {
   position: absolute;
   z-index: 10;
   top: calc(100% + 4px);
@@ -678,12 +624,29 @@
   border-radius: var(--sqb-radius-sm);
   box-shadow: var(--sqb-shadow);
 }
-/* Not enough room below inside the modal's body: open upwards. */
-.sqb-ac-list.sqb-drop-up {
+.sqb-dropdown.sqb-dropdown-up {
   top: auto;
   bottom: calc(100% + 4px);
 }
-.sqb-ac-item {
+.sqb-dropdown-group {
+  padding: 6px 7px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sqb-text-muted);
+}
+.sqb-dropdown-sublist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sqb-dropdown-note {
+  padding: 6px 7px;
+  color: var(--sqb-text-muted);
+  font-size: 12px;
+}
+.sqb-option {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -697,45 +660,44 @@
   text-align: left;
   cursor: pointer;
 }
-.sqb-ac-item:hover,
-.sqb-ac-item.sqb-ac-active {
+.sqb-option:hover,
+.sqb-option.sqb-option-active {
   background: var(--sqb-primary-soft);
 }
-.sqb-ac-name {
+.sqb-option-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sqb-ac-text {
+.sqb-option-text {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
 }
-.sqb-ac-desc {
+.sqb-option-description {
   font-size: 11px;
   color: var(--sqb-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sqb-ac-code {
+.sqb-option-code {
   font-family: var(--sqb-mono);
   font-size: 11px;
   text-transform: uppercase;
   color: var(--sqb-text-muted);
 }
-.sqb-ac-meta {
+.sqb-option-meta {
   font-size: 11px;
   color: var(--sqb-text-muted);
   font-variant-numeric: tabular-nums;
 }
-.sqb-ac-note {
-  padding: 6px 7px;
-  color: var(--sqb-text-muted);
-  font-size: 12px;
+.sqb-match {
+  font-weight: 700;
+  color: var(--sqb-primary);
 }
 .sqb-set-icon {
   width: 16px;
@@ -743,39 +705,4 @@
   flex: none;
   object-fit: contain;
   filter: var(--sqb-icon-filter);
-}
-
-.sqb-chip-remove {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  line-height: 1;
-  padding: 0 0 0 2px;
-  opacity: 0.6;
-}
-.sqb-chip-remove:hover {
-  opacity: 1;
-  color: var(--sqb-danger);
-}
-
-/* --- type combobox ------------------------------------------------------- */
-
-.sqb-ac-sub {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.sqb-ac-group {
-  padding: 6px 7px 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--sqb-text-muted);
-}
-.sqb-ac-hit {
-  font-weight: 700;
-  color: var(--sqb-primary);
 }

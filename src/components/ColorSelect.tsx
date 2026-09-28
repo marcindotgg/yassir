@@ -1,166 +1,132 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { COLOR_COMBO_GROUPS, COLORS, toggleColorOption, type ColorOption, type ColorSelection } from '../lib/scryfall-syntax';
-import { useDropdownPlacement } from './useDropdownPlacement';
+import { DropdownList } from './Dropdown';
 
-export interface ColorSelectProps {
+interface ColorSelectProps {
   value: ColorSelection;
   onChange: (next: ColorSelection) => void;
 }
 
-interface Item {
+interface ColorItem {
   option: ColorOption;
-  /** Colors, Guilds, Shards, Wedges, Four colors. */
   group: string;
   label: string;
-  /** The colors as letters: `W`, `UR`; `C` for colorless. */
   letters: string;
-  /** Lower-case text the filter looks in. */
-  haystack: string;
+  searchText: string;
 }
 
-/** Light and dark end of each color's gradient, lit from above like the rarity gems. */
-const SWATCH: Record<string, [light: string, dark: string]> = {
+interface ColorGroup {
+  label: string;
+  rows: { item: ColorItem; index: number }[];
+}
+
+const LIST_HEIGHT = 340;
+const COLOR_NAMES = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' } as const;
+const GRADIENTS: Record<string, [light: string, dark: string]> = {
   W: ['#fffdf0', '#d8cf98'],
   U: ['#b4d6f2', '#3d78b0'],
   B: ['#8a7f78', '#221d1a'],
   R: ['#ffb08f', '#c23f22'],
   G: ['#a5d69f', '#347a3a'],
-  C: ['#e6e3e0', '#9a9590'],
 };
-const NAMES = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' } as const;
-const LIST_HEIGHT = 340;
+const COLORLESS_GRADIENT: [light: string, dark: string] = ['#e6e3e0', '#9a9590'];
+const GLOSS = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25))';
 
-const ITEMS: readonly Item[] = [
-  ...COLORS.map((c): Item => ({ option: { kind: 'color', value: c }, group: 'Colors', label: NAMES[c], letters: c, haystack: `${NAMES[c]} ${c} colors`.toLowerCase() })),
-  { option: { kind: 'colorless' }, group: 'Colors', label: 'Colorless', letters: 'C', haystack: 'colorless c colors' },
-  ...COLOR_COMBO_GROUPS.flatMap((g) =>
-    g.combos.map((combo): Item => {
-      const label = combo.name.charAt(0).toUpperCase() + combo.name.slice(1);
-      return { option: { kind: 'combo', value: combo.name }, group: g.label, label, letters: combo.colors, haystack: `${combo.name} ${combo.colors} ${g.label}`.toLowerCase() };
+const ITEMS: readonly ColorItem[] = [
+  ...COLORS.map(
+    (color): ColorItem => ({
+      option: { kind: 'color', value: color },
+      group: 'Colors',
+      label: COLOR_NAMES[color],
+      letters: color,
+      searchText: `${COLOR_NAMES[color]} ${color} colors`.toLowerCase(),
     }),
+  ),
+  { option: { kind: 'colorless' }, group: 'Colors', label: 'Colorless', letters: 'C', searchText: 'colorless c colors' },
+  ...COLOR_COMBO_GROUPS.flatMap((group) =>
+    group.combos.map(
+      (combo): ColorItem => ({
+        option: { kind: 'combo', value: combo.name },
+        group: group.label,
+        label: capitalize(combo.name),
+        letters: combo.colors,
+        searchText: `${combo.name} ${combo.colors} ${group.label}`.toLowerCase(),
+      }),
+    ),
   ),
 ];
 
-const isSelected = (sel: ColorSelection, { option }: Item): boolean =>
-  option.kind === 'color' ? sel.colors.includes(option.value) : option.kind === 'colorless' ? sel.colorless : sel.colorCombos.includes(option.value);
-
-/** A disc split into equal slices, one per color, in WUBRG order, each shaded light to dark. */
-function pie(letters: string): string {
-  const colors = letters.split('').map((l) => SWATCH[l] ?? (SWATCH.C as [string, string]));
-  if (colors.length === 1) {
-    const [light, dark] = colors[0] as [string, string];
-    return `radial-gradient(circle at 50% 20%, ${light}, ${dark})`;
-  }
-  const step = 360 / colors.length;
-  // Flat slices in each color's mid tone, with one shared gloss over the whole disc so the seams stay clean.
-  const slices = colors.map(([light, dark], i) => `color-mix(in srgb, ${light}, ${dark}) ${i * step}deg ${(i + 1) * step}deg`);
-  const gloss = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25))';
-  return `${gloss}, conic-gradient(${slices.join(', ')})`;
-}
-
-const Pie = ({ letters, size }: { letters: string; size: 'sm' | 'lg' }) => (
-  <span class={`sqb-pie sqb-pie-${size}`} style={{ background: pie(letters) }} aria-hidden="true" />
-);
-
-/**
- * Select2-style multiselect for a card's colors: chips in the box, a filter
- * you can type into, and a list grouped into single colors, guilds, shards,
- * wedges, four-color sets and rainbow. Picked rows get a green border and name. Single colors, colorless and combinations
- * exclude each other — see toggleColorOption.
- */
-export function ColorSelect(props: ColorSelectProps) {
-  const [text, setText] = useState('');
+export function ColorSelect({ value, onChange }: ColorSelectProps) {
+  const [filter, setFilter] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const listId = useRef(`sqb-colors-${Math.random().toString(36).slice(2, 8)}`).current;
-  const placement = useDropdownPlacement(boxRef, open, LIST_HEIGHT);
+  const listId = useId();
 
-  const shown = useMemo(() => {
-    const q = text.trim().toLowerCase();
-    return q ? ITEMS.filter((i) => i.haystack.includes(q)) : ITEMS;
-  }, [text]);
-  const chosen = ITEMS.filter((i) => isSelected(props.value, i));
+  const visible = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    return query ? ITEMS.filter((item) => item.searchText.includes(query)) : ITEMS;
+  }, [filter]);
+  const selected = ITEMS.filter((item) => isSelected(value, item));
 
-  useEffect(() => setActive(0), [text]);
-  // Keep the active row in view by scrolling the list itself, never the modal around it.
+  useEffect(() => setActive(0), [filter]);
   useEffect(() => {
     const list = listRef.current;
-    const row = list?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+    const row = list?.querySelector<HTMLElement>(`[data-index="${active}"]`);
     if (!open || !list || !row) return;
-    // The first row of a group brings its heading into view along with it.
-    const firstInGroup = row.previousElementSibling?.classList.contains('sqb-ms-group-label');
-    const top = firstInGroup ? (row.parentElement as HTMLElement).offsetTop : row.offsetTop;
     if (active === 0) list.scrollTop = 0;
-    else if (top < list.scrollTop) list.scrollTop = top;
-    else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
+    else scrollRowIntoView(list, row);
   }, [active, open]);
 
-  const toggle = (item: Item) => {
-    props.onChange(toggleColorOption(props.value, item.option));
-    setText('');
+  const toggle = (item: ColorItem) => {
+    onChange(toggleColorOption(value, item.option));
+    setFilter('');
     inputRef.current?.focus();
+  };
+
+  const openFromBox = (event: MouseEvent) => {
+    if (event.target !== inputRef.current) {
+      event.preventDefault();
+      inputRef.current?.focus();
+    }
+    setOpen(true);
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
       if (!open) setOpen(true);
-      else if (shown.length > 0) setActive((i) => (i + (event.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length);
-      return;
-    }
-    if (event.key === 'Enter') {
-      // Never let Enter reach Scryfall's own search form while picking colors.
+      else if (visible.length > 0) setActive((i) => (i + step + visible.length) % visible.length);
+    } else if (event.key === 'Enter') {
       event.preventDefault();
-      const picked = shown[active];
-      if (open && picked) toggle(picked);
+      const item = visible[active];
+      if (open && item) toggle(item);
       else setOpen(true);
-      return;
-    }
-    if (event.key === 'Escape' && open) {
+    } else if (event.key === 'Escape' && open) {
       event.preventDefault();
       setOpen(false);
-      return;
-    }
-    if (event.key === 'Backspace' && text === '' && chosen.length > 0) {
-      props.onChange(toggleColorOption(props.value, (chosen[chosen.length - 1] as Item).option));
+    } else if (event.key === 'Backspace' && filter === '') {
+      const last = selected.at(-1);
+      if (last) onChange(toggleColorOption(value, last.option));
     }
   };
-
-  // Rows of the same group go into one <li> each, so the groups read as blocks.
-  const groups: { label: string; rows: { item: Item; idx: number }[] }[] = [];
-  shown.forEach((item, idx) => {
-    const last = groups[groups.length - 1];
-    if (last?.label === item.group) last.rows.push({ item, idx });
-    else groups.push({ label: item.group, rows: [{ item, idx }] });
-  });
 
   return (
     <div class="sqb-field">
       <span class="sqb-label">Colors</span>
-      <div class="sqb-ms">
-        <div
-          ref={boxRef}
-          class="sqb-ms-box"
-          onMouseDown={(e) => {
-            if (e.target !== inputRef.current) {
-              e.preventDefault();
-              inputRef.current?.focus();
-            }
-            setOpen(true);
-          }}
-        >
-          {chosen.map((item) => (
+      <div class="sqb-multiselect">
+        <div ref={boxRef} class="sqb-multiselect-box" onMouseDown={openFromBox}>
+          {selected.map((item) => (
             <span key={item.label} class="sqb-chip">
-              <Pie letters={item.letters} size="sm" />
+              <ColorPie letters={item.letters} size="sm" />
               {item.label}
               <button
                 type="button"
                 class="sqb-chip-remove"
                 aria-label={`Remove ${item.label}`}
-                // Keeps the focus where it was and doesn't reopen the list.
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -173,63 +139,104 @@ export function ColorSelect(props: ColorSelectProps) {
           ))}
           <input
             ref={inputRef}
-            class="sqb-ms-input"
+            class="sqb-multiselect-input"
             role="combobox"
             aria-expanded={open}
             aria-controls={listId}
             aria-autocomplete="list"
             autocomplete="off"
-            placeholder={chosen.length === 0 ? 'Any color' : ''}
-            value={text}
+            placeholder={selected.length === 0 ? 'Any color' : ''}
+            value={filter}
             onInput={(e) => {
-              setText((e.target as HTMLInputElement).value);
+              setFilter(e.currentTarget.value);
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
             onBlur={() => setOpen(false)}
             onKeyDown={onKeyDown}
           />
-          <span class="sqb-ms-caret" aria-hidden="true">
+          <span class="sqb-multiselect-caret" aria-hidden="true">
             ▾
           </span>
         </div>
 
         {open && (
-          // mousedown default would blur the input and close the list before the click lands.
-          <ul
-            ref={listRef}
-            class={`sqb-ac-list sqb-ms-list ${placement.up ? 'sqb-drop-up' : ''}`}
-            style={{ maxHeight: `${placement.maxHeight}px` }}
-            id={listId}
-            role="listbox"
-            aria-multiselectable="true"
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {groups.map((group) => (
-              <li key={group.label} class="sqb-ms-group" role="group" aria-label={group.label}>
-                <div class="sqb-ms-group-label">{group.label}</div>
-                {group.rows.map(({ item, idx }) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected(props.value, item)}
-                    data-idx={idx}
-                    class={`sqb-ac-item ${idx === active ? 'sqb-ac-active' : ''} ${isSelected(props.value, item) ? 'sqb-ms-selected' : ''}`}
-                    onMouseEnter={() => setActive(idx)}
-                    onClick={() => toggle(item)}
-                  >
-                    <Pie letters={item.letters} size="lg" />
-                    <span class="sqb-ac-name">{item.label}</span>
-                    <span class="sqb-ac-code">{item.letters}</span>
-                  </button>
-                ))}
+          <DropdownList id={listId} anchor={boxRef} preferredHeight={LIST_HEIGHT} class="sqb-multiselect-list" listRef={listRef} multiselectable>
+            {groupRows(visible).map((group) => (
+              <li key={group.label} class="sqb-multiselect-group" role="group" aria-label={group.label}>
+                <div class="sqb-multiselect-group-label">{group.label}</div>
+                {group.rows.map(({ item, index }) => {
+                  const picked = isSelected(value, item);
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="option"
+                      aria-selected={picked}
+                      data-index={index}
+                      class={`sqb-option ${index === active ? 'sqb-option-active' : ''} ${picked ? 'sqb-option-selected' : ''}`}
+                      onMouseEnter={() => setActive(index)}
+                      onClick={() => toggle(item)}
+                    >
+                      <ColorPie letters={item.letters} size="lg" />
+                      <span class="sqb-option-name">{item.label}</span>
+                      <span class="sqb-option-code">{item.letters}</span>
+                    </button>
+                  );
+                })}
               </li>
             ))}
-            {shown.length === 0 && <li class="sqb-ac-note">No color matches “{text.trim()}”.</li>}
-          </ul>
+            {visible.length === 0 && <li class="sqb-dropdown-note">No color matches “{filter.trim()}”.</li>}
+          </DropdownList>
         )}
       </div>
     </div>
   );
+}
+
+function ColorPie({ letters, size }: { letters: string; size: 'sm' | 'lg' }) {
+  return <span class={`sqb-pie sqb-pie-${size}`} style={{ background: pieBackground(letters) }} aria-hidden="true" />;
+}
+
+function pieBackground(letters: string): string {
+  const gradients = letters.split('').map((letter) => GRADIENTS[letter] ?? COLORLESS_GRADIENT);
+  const [only] = gradients;
+  if (gradients.length === 1 && only) return `radial-gradient(circle at 50% 20%, ${only[0]}, ${only[1]})`;
+  const step = 360 / gradients.length;
+  const slices = gradients.map(([light, dark], i) => `color-mix(in srgb, ${light}, ${dark}) ${i * step}deg ${(i + 1) * step}deg`);
+  return `${GLOSS}, conic-gradient(${slices.join(', ')})`;
+}
+
+function isSelected(selection: ColorSelection, { option }: ColorItem): boolean {
+  switch (option.kind) {
+    case 'color':
+      return selection.colors.includes(option.value);
+    case 'colorless':
+      return selection.colorless;
+    case 'combo':
+      return selection.colorCombos.includes(option.value);
+  }
+}
+
+function groupRows(items: readonly ColorItem[]): ColorGroup[] {
+  const groups: ColorGroup[] = [];
+  items.forEach((item, index) => {
+    const group = groups.at(-1);
+    if (group?.label === item.group) group.rows.push({ item, index });
+    else groups.push({ label: item.group, rows: [{ item, index }] });
+  });
+  return groups;
+}
+
+/** Scrolls the list itself, never the modal around it; a group's first row brings the group label along. */
+function scrollRowIntoView(list: HTMLElement, row: HTMLElement) {
+  const isFirstInGroup = row.previousElementSibling?.classList.contains('sqb-multiselect-group-label');
+  const top = isFirstInGroup ? (row.parentElement as HTMLElement).offsetTop : row.offsetTop;
+  const bottom = row.offsetTop + row.offsetHeight;
+  if (top < list.scrollTop) list.scrollTop = top;
+  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

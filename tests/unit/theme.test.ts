@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hostTheme } from '../../src/ui/theme';
 
-/** Builds `<div style=bg><span/></div>` and asks what theme the span would get. */
 function themeFor(...backgrounds: string[]): 'dark' | 'light' | null {
   document.body.innerHTML = '';
   document.body.style.backgroundColor = 'transparent';
@@ -18,7 +17,6 @@ function themeFor(...backgrounds: string[]): 'dark' | 'light' | null {
 }
 
 describe('host theme', () => {
-  // getComputedStyle always reports backgroundColor as rgb()/rgba() in a browser.
   it('picks by the luminance of the nearest painted background', () => {
     expect(themeFor('rgb(43, 37, 58)')).toBe('dark');
     expect(themeFor('rgb(245, 246, 247)')).toBe('light');

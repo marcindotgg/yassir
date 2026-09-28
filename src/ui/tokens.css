@@ -1,6 +1,4 @@
-/* Design tokens for everything the extension renders inside its shadow root. */
-:host,
-:root {
+:host {
   --sqb-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --sqb-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --sqb-radius: 10px;
@@ -15,35 +13,27 @@
   --sqb-text-muted: #64748b;
 
   --sqb-primary: #4f46e5;
-  --sqb-primary-strong: #4338ca;
   --sqb-primary-soft: #e0e7ff;
-  --sqb-primary-contrast: #ffffff;
 
-  /* Clear / Search: Scryfall violet instead of the generic indigo. */
   --sqb-action: #5c4a8a;
   --sqb-action-strong: #493a70;
   --sqb-action-contrast: #ffffff;
 
   --sqb-danger: #dc2626;
   --sqb-ok: #15803d;
-  /* Scryfall's set symbols are near-black SVGs; dark themes flip them. */
   --sqb-icon-filter: none;
 }
 
-/* The content script mirrors Scryfall's own theme onto the host as `data-theme`,
-   so the OS preference only decides when the page hasn't told us it is light. */
+/* data-theme follows the page behind the sheet (src/ui/theme.ts); the OS preference is only the fallback. */
 @media (prefers-color-scheme: dark) {
-  :host(:not([data-theme='light'])),
-  :root:not([data-theme='light']) {
+  :host(:not([data-theme='light'])) {
     --sqb-bg: #111827;
     --sqb-bg-muted: #1f2937;
     --sqb-border: #374151;
     --sqb-text: #f3f4f6;
     --sqb-text-muted: #9ca3af;
     --sqb-primary: #a5b4fc;
-    --sqb-primary-strong: #c7d2fe;
     --sqb-primary-soft: #312e81;
-    --sqb-primary-contrast: #1e1b4b;
     --sqb-action: #b9a8e8;
     --sqb-action-strong: #d3c7f2;
     --sqb-action-contrast: #1f1836;
@@ -60,9 +50,7 @@
   --sqb-text: #f3f4f6;
   --sqb-text-muted: #9ca3af;
   --sqb-primary: #a5b4fc;
-  --sqb-primary-strong: #c7d2fe;
   --sqb-primary-soft: #312e81;
-  --sqb-primary-contrast: #1e1b4b;
   --sqb-action: #b9a8e8;
   --sqb-action-strong: #d3c7f2;
   --sqb-action-contrast: #1f1836;

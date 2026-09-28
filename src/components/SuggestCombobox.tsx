@@ -1,142 +1,97 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { splitLastWord, suggestFrom, type TypeGroup } from '../lib/type-suggestions';
-import { useDropdownPlacement } from './useDropdownPlacement';
+import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { filterSuggestions, splitLastWord, type SuggestionGroup } from '../lib/suggestions';
+import { DropdownList } from './Dropdown';
 
 const LIST_HEIGHT = 260;
 
-function Highlighted({ name, word }: { name: string; word: string }) {
-  const at = word ? name.toLowerCase().indexOf(word.toLowerCase()) : -1;
-  if (at < 0) return <>{name}</>;
-  return (
-    <>
-      {name.slice(0, at)}
-      <strong class="sqb-ac-hit">{name.slice(at, at + word.length)}</strong>
-      {name.slice(at + word.length)}
-    </>
-  );
-}
-
-/**
- * A text field with a dropdown of `suggestions` for the word being typed.
- * Picking one goes through a real `input` event, so whatever listens to the
- * field sees it as typing.
- */
-export function SuggestCombobox(props: {
+interface SuggestComboboxProps {
   value: string;
   placeholder: string;
-  suggestions: readonly TypeGroup[];
-  /** A line under each suggestion that has one. */
+  suggestions: readonly SuggestionGroup[];
   descriptions?: ReadonlyMap<string, string>;
   onInput: (value: string) => void;
-}) {
+}
+
+export function SuggestCombobox({ value, placeholder, suggestions, descriptions, onInput }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const listId = useRef(`sqb-suggest-${Math.random().toString(36).slice(2, 8)}`).current;
+  const listId = useId();
 
-  const { head, word } = splitLastWord(props.value);
-  const groups = useMemo(() => suggestFrom(props.suggestions, word), [props.suggestions, word]);
-  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const { head, word } = splitLastWord(value);
+  const groups = useMemo(() => filterSuggestions(suggestions, word), [suggestions, word]);
+  const options = useMemo(() => groups.flatMap((group) => group.items), [groups]);
 
   useEffect(() => setActive(-1), [word]);
-
   useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', away);
-    return () => document.removeEventListener('mousedown', away);
-  }, [open]);
-
-  useEffect(() => {
-    listRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
+    listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
-  const pick = (name: string) => {
-    const input = inputRef.current;
-    if (!input) return;
-    input.value = head + name;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+  const pick = (option: string) => {
+    onInput(head + option);
     setOpen(false);
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      if (!open) setOpen(true);
-      if (flat.length === 0) return;
-      setActive((i) => (event.key === 'ArrowDown' ? (i + 1) % flat.length : (i <= 0 ? flat.length - 1 : i - 1)));
+      setOpen(true);
+      if (options.length === 0) return;
+      setActive((i) => (event.key === 'ArrowDown' ? (i + 1) % options.length : i <= 0 ? options.length - 1 : i - 1));
     } else if (event.key === 'Enter') {
-      const picked = open ? flat[active] : undefined;
-      if (picked) {
-        event.preventDefault();
-        pick(picked);
-      }
+      const option = open ? options[active] : undefined;
+      if (!option) return;
+      event.preventDefault();
+      pick(option);
     } else if (event.key === 'Escape' && open) {
       event.preventDefault();
-      setOpen(false);
-    } else if (event.key === 'Tab') {
       setOpen(false);
     }
   };
 
-  const placement = useDropdownPlacement(rootRef, open, LIST_HEIGHT);
-  let index = -1;
-
+  let optionIndex = -1;
   return (
-    <div class="sqb-ac" ref={rootRef}>
+    <div class="sqb-combobox" ref={rootRef}>
       <input
-        ref={inputRef}
         class="sqb-input"
         role="combobox"
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
         autocomplete="off"
-        value={props.value}
-        placeholder={props.placeholder}
+        value={value}
+        placeholder={placeholder}
         onInput={(e) => {
-          props.onInput((e.target as HTMLInputElement).value);
+          onInput(e.currentTarget.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />
       {open && (
-        <ul
-          ref={listRef}
-          id={listId}
-          class={`sqb-ac-list ${placement.up ? 'sqb-drop-up' : ''}`}
-          style={{ maxHeight: `${placement.maxHeight}px` }}
-          role="listbox"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          {groups.map((g) => (
-            <li key={g.label} role="presentation">
-              <div class="sqb-ac-group">{g.label}</div>
-              <ul class="sqb-ac-sub" role="group" aria-label={g.label}>
-                {g.items.map((name) => {
-                  const i = ++index;
+        <DropdownList id={listId} anchor={rootRef} preferredHeight={LIST_HEIGHT} listRef={listRef}>
+          {groups.map((group) => (
+            <li key={group.label} role="presentation">
+              <div class="sqb-dropdown-group">{group.label}</div>
+              <ul class="sqb-dropdown-sublist" role="group" aria-label={group.label}>
+                {group.items.map((option) => {
+                  const index = ++optionIndex;
                   return (
-                    <li key={name} role="option" aria-selected={i === active} data-active={i === active}>
+                    <li key={option} role="option" aria-selected={index === active}>
                       <button
                         type="button"
                         tabIndex={-1}
-                        class={`sqb-ac-item ${i === active ? 'sqb-ac-active' : ''}`}
-                        onMouseEnter={() => setActive(i)}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          pick(name);
-                        }}
+                        class={`sqb-option ${index === active ? 'sqb-option-active' : ''}`}
+                        onMouseEnter={() => setActive(index)}
+                        onClick={() => pick(option)}
                       >
-                        <span class="sqb-ac-text">
-                          <span class="sqb-ac-name">
-                            <Highlighted name={name} word={word} />
+                        <span class="sqb-option-text">
+                          <span class="sqb-option-name">
+                            <HighlightedMatch text={option} match={word} />
                           </span>
-                          {props.descriptions?.has(name) && <span class="sqb-ac-desc">{props.descriptions.get(name)}</span>}
+                          {descriptions?.has(option) && <span class="sqb-option-description">{descriptions.get(option)}</span>}
                         </span>
                       </button>
                     </li>
@@ -145,9 +100,21 @@ export function SuggestCombobox(props: {
               </ul>
             </li>
           ))}
-          {groups.length === 0 && <li class="sqb-ac-note">No matching suggestions</li>}
-        </ul>
+          {groups.length === 0 && <li class="sqb-dropdown-note">No matching suggestions</li>}
+        </DropdownList>
       )}
     </div>
+  );
+}
+
+function HighlightedMatch({ text, match }: { text: string; match: string }) {
+  const at = match ? text.toLowerCase().indexOf(match.toLowerCase()) : -1;
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <strong class="sqb-match">{text.slice(at, at + match.length)}</strong>
+      {text.slice(at + match.length)}
+    </>
   );
 }

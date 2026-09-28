@@ -1,37 +1,33 @@
 import '../src/ui/styles.css';
 import { defineContentScript } from '#imports';
-import { mountQueryBuilder } from '../src/content/queryBuilder';
+import { mountSearchModal } from '../src/content/mount';
 
 export default defineContentScript({
   matches: ['https://scryfall.com/*'],
   runAt: 'document_idle',
   cssInjectionMode: 'ui',
   main(ctx) {
-    let cleanup: (() => void) | null = null;
+    let unmount: (() => void) | null = null;
     let generation = 0;
 
-    const start = async () => {
-      const gen = ++generation;
-      cleanup?.();
-      cleanup = null;
+    const remount = async () => {
+      const current = ++generation;
+      unmount?.();
+      unmount = null;
       if (ctx.isInvalid) return;
-
-      const remove = await mountQueryBuilder(ctx);
-      // A newer run (or an invalidated context) won the race; drop this mount.
-      if (gen !== generation || ctx.isInvalid) remove();
-      else cleanup = remove;
+      const remove = await mountSearchModal(ctx);
+      if (current !== generation || ctx.isInvalid) remove();
+      else unmount = remove;
     };
 
-    // WXT reports this from the Navigation API's navigate event, which also fires
-    // as a search (or a link) starts loading another page — with this one still
-    // up, sheet and all. Only remount once this document's own URL has moved
-    // (pushState and the like); a page on its way out is left as it is.
+    // WXT also reports a search that starts loading another page, while this one is still up:
+    // remount only once this document's own URL has changed.
     ctx.addEventListener(window, 'wxt:locationchange', ({ newUrl }) => {
       ctx.setTimeout(() => {
-        if (location.href === newUrl.href) void start();
+        if (location.href === newUrl.href) void remount();
       });
     });
-    ctx.onInvalidated(() => cleanup?.());
-    void start();
+    ctx.onInvalidated(() => unmount?.());
+    void remount();
   },
 });

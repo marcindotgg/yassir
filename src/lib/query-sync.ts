@@ -1,12 +1,8 @@
-// The query in the box is the one source of truth; the form is a reading of it.
-// readQuery says what each field shows and which conditions no field can;
-// writeQuery puts a changed field back, term by term, where it stood, leaving
-// the rest of the text alone. No DOM, unit-tested.
-
 import { parseQuery, topLevel, type Expr, type Op, type Term } from './query-parse';
 import {
   COLOR_COMBO_GROUPS,
   COLORS,
+  DECIMAL,
   EMPTY_QUERY,
   FIELD_TERMS,
   FIELDS,
@@ -18,313 +14,239 @@ import {
   type QueryState,
 } from './scryfall-syntax';
 
-/** One of the things the query ANDs together at its top level. */
 export interface Condition {
   node: Expr;
   start: number;
   end: number;
-  /** Its text, as typed. */
   text: string;
 }
 
 export interface QueryReading {
-  /** What the form shows. */
   state: QueryState;
   conditions: Condition[];
-  /** The conditions behind each field, in query order. */
-  claims: Map<FieldId, Condition[]>;
-  /** The conditions no field can show: they get pins. */
-  extras: Condition[];
+  conditionsByField: Map<FieldId, Condition[]>;
+  otherConditions: Condition[];
 }
 
-const EQ: readonly Op[] = [':', '='];
-const CMP: readonly Op[] = [':', '=', '!=', '<', '<=', '>', '>='];
-const NUMBER = /^\d+(\.\d+)?$/;
+type FieldReader = (node: Expr, state: QueryState) => Partial<QueryState> | null;
 
-/**
- * A term the form can hold: not negated, not an exact name, with a value, and
- * no regex unless the field takes one (a regex with a space in it never fits).
- */
-function keyed(node: Expr, keys: readonly string[], ops: readonly (Op | '')[], regex = false): Term | null {
-  if (node.kind !== 'term' || node.negated || node.exact || (node.regex && (!regex || /\s/.test(node.value)))) return null;
-  return keys.includes(node.key) && ops.includes(node.op) && node.value !== '' ? node : null;
+const EQUALITY: readonly Op[] = [':', '='];
+const COMPARISON: readonly Op[] = [':', '=', '!=', '<', '<=', '>', '>='];
+const COLOR_KEYS = ['c', 'color'];
+const COMBO_COLORS = new Map(COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => [combo.name, combo.colors] as const)));
+const RARITY_LETTERS: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic', s: 'special' };
+const MULTI_CONDITION_FIELDS: ReadonlySet<FieldId> = new Set(['name', 'rulesText', 'type', 'otag', 'flags']);
+
+const FIELD_READERS: Record<FieldId, FieldReader> = {
+  name: (node, state) => {
+    const term = matchTerm(node, ['', 'name'], ['', ':']);
+    return term && { name: appendWord(state.name, term.value) };
+  },
+  rulesText: wordReader('rulesText', ['o', 'oracle'], { allowRegex: true }),
+  type: wordReader('type', ['t', 'type'], { allowRegex: true }),
+  colors: readColors,
+  manaValue: comparisonReader('manaValue', ['mv', 'cmc', 'manavalue']),
+  rarity: (node) => {
+    const rarity = alternativeValues(node, ['r', 'rarity'], (value) => (isOneOf(RARITIES, value) ? value : (RARITY_LETTERS[value] ?? null)));
+    return rarity && { rarity };
+  },
+  sets: (node) => {
+    const sets = alternativeValues(node, ['s', 'e', 'set', 'edition'], (value) => (/^[a-z0-9]+$/.test(value) ? value : null));
+    return sets && { sets };
+  },
+  format: choiceReader('format', ['f', 'format', 'legal'], FORMATS, EQUALITY),
+  price: (node) => {
+    const term = matchTerm(node, ['usd', 'eur'], ['<=']);
+    return term && DECIMAL.test(term.value) ? { priceMax: term.value, priceCurrency: term.key as QueryState['priceCurrency'] } : null;
+  },
+  power: comparisonReader('power', ['pow', 'power']),
+  toughness: comparisonReader('toughness', ['tou', 'toughness']),
+  artist: (node) => {
+    const term = matchTerm(node, ['a', 'artist'], [':']);
+    return term && { artist: term.value };
+  },
+  otag: wordReader('otag', ['otag', 'oracletag', 'function']),
+  year: comparisonReader('year', ['year']),
+  flags: (node, state) => {
+    const flag = matchTerm(node, ['is'], [':'])?.value.toLowerCase() ?? '';
+    if (!isOneOf(FLAGS, flag)) return null;
+    return { flags: state.flags.includes(flag) ? state.flags : [...state.flags, flag] };
+  },
+  order: choiceReader('order', ['order'], ORDERS),
+  direction: choiceReader('direction', ['direction'], ['asc', 'desc']),
+};
+
+export function readQuery(query: string): QueryReading {
+  const conditions = topLevel(parseQuery(query)).map((node) => ({ node, start: node.start, end: node.end, text: query.slice(node.start, node.end) }));
+  const conditionsByField = new Map<FieldId, Condition[]>();
+  const otherConditions: Condition[] = [];
+  let state = EMPTY_QUERY;
+
+  for (const condition of conditions) {
+    const match = readCondition(condition.node, state, conditionsByField);
+    if (!match) {
+      otherConditions.push(condition);
+      continue;
+    }
+    state = { ...state, ...match.patch };
+    conditionsByField.set(match.field, [...(conditionsByField.get(match.field) ?? []), condition]);
+  }
+  return { state, conditions, conditionsByField, otherConditions };
 }
 
-/** `a`, `(a)`, `a or b`, `(a or b)` -> its terms; anything else -> null. */
+/** Rewrites only the fields whose terms changed, in place; the rest of the text stays as typed. */
+export function writeQuery(query: string, next: QueryState): string {
+  const { state, conditions, conditionsByField } = readQuery(query);
+  const replacements = new Map<Condition, string[]>();
+  const appended: string[] = [];
+
+  for (const field of FIELDS) {
+    const oldTerms = FIELD_TERMS[field](state);
+    const newTerms = FIELD_TERMS[field](next);
+    if (sameTerms(oldTerms, newTerms)) continue;
+    const current = conditionsByField.get(field) ?? [];
+    if (current.length === 0) appended.push(...newTerms);
+    current.forEach((condition, i) => {
+      const isLast = i === current.length - 1;
+      replacements.set(condition, isLast ? newTerms.slice(i) : newTerms.slice(i, i + 1));
+    });
+  }
+  if (replacements.size === 0 && appended.length === 0) return query;
+  return rebuild(query, conditions, replacements, appended);
+}
+
+export function removeCondition(query: string, condition: Pick<Condition, 'start' | 'end' | 'text'>): string {
+  const { conditions } = readQuery(query);
+  const target =
+    conditions.find((c) => c.start === condition.start && c.end === condition.end && c.text === condition.text) ??
+    conditions.find((c) => c.text === condition.text);
+  return target ? rebuild(query, conditions, new Map([[target, []]])) : query;
+}
+
+function readCondition(node: Expr, state: QueryState, filled: Map<FieldId, Condition[]>): { field: FieldId; patch: Partial<QueryState> } | null {
+  for (const field of FIELDS) {
+    if (filled.has(field) && !MULTI_CONDITION_FIELDS.has(field)) continue;
+    const patch = FIELD_READERS[field](node, state);
+    if (patch) return { field, patch };
+  }
+  return null;
+}
+
+/** Each kept condition keeps the separator typed before it, so removing one never leaves a dangling `and`. */
+function rebuild(query: string, conditions: Condition[], replacements: Map<Condition, string[]>, appended: readonly string[] = []): string {
+  const parts: string[] = [];
+  const append = (separator: string, text: string) => parts.push(parts.length > 0 ? separator + text : text);
+
+  conditions.forEach((condition, i) => {
+    const [text, ...inserted] = replacements.get(condition) ?? [condition.text];
+    const previous = conditions[i - 1];
+    if (text) append(previous ? query.slice(previous.end, condition.start) || ' ' : '', text);
+    for (const term of inserted) append(' ', term);
+  });
+  for (const term of appended) append(' ', term);
+
+  // A whole query of `a or b` would swallow whatever is ANDed on after it: `a or b c` is `a or (b c)`.
+  const [only] = conditions;
+  if (conditions.length === 1 && only?.node.kind === 'or' && !replacements.has(only) && parts.length > 1) parts[0] = `(${parts[0]})`;
+  return parts.join('');
+}
+
+function sameTerms(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((term, i) => term === b[i]);
+}
+
+function matchTerm(node: Expr, keys: readonly string[], ops: readonly (Op | '')[], allowRegex = false): Term | null {
+  if (node.kind !== 'term' || node.negated || node.exact || !node.value) return null;
+  // A regex with a space in it would be split into several words on its way back into the query.
+  if (node.regex && (!allowRegex || /\s/.test(node.value))) return null;
+  return keys.includes(node.key) && ops.includes(node.op) ? node : null;
+}
+
+/** `a`, `(a)`, `a or b`, `(a or b)` -> its alternatives; null for anything else. */
 function alternatives(node: Expr): Expr[] | null {
   if (node.kind === 'group') return !node.negated && node.body ? alternatives(node.body) : null;
   if (node.kind === 'or') return node.items;
   return node.kind === 'term' ? [node] : null;
 }
 
-/** Every alternative is a `keys` term with a value `pick` accepts -> the picked values. */
-function anyOf(node: Expr, keys: readonly string[], pick: (value: string) => string | null): string[] | null {
-  const values = alternatives(node)?.map((alt) => {
-    const t = keyed(alt, keys, EQ);
-    return t && pick(t.value.toLowerCase());
+function alternativeValues(node: Expr, keys: readonly string[], pick: (value: string) => string | null): string[] | null {
+  const values = alternatives(node)?.map((alternative) => {
+    const term = matchTerm(alternative, keys, EQUALITY);
+    return term && pick(term.value.toLowerCase());
   });
-  return values?.every((v): v is string => !!v) ? [...new Set(values)] : null;
+  return values?.every((value): value is string => !!value) ? [...new Set(values)] : null;
 }
 
-/** A word as the rules text and type fields hold it: `"a card"` keeps its quotes, a regex its slashes. */
-const word = (t: Term): string => (t.regex ? `/${t.value}/` : /[\s"]/.test(t.value) ? `"${t.value}"` : t.value);
-const add = (field: string, more: string): string => (field ? `${field} ${more}` : more);
-/** `pow>=4` -> ">=4"; plain equality shows as just the value. */
-const compareText = (t: Term): string => (t.op === '=' || t.op === ':' ? t.value : `${t.op}${t.value}`);
-
-const COMBOS = new Map(COLOR_COMBO_GROUPS.flatMap((g) => g.combos.map((c): [string, string] => [c.name, c.colors])));
-const RARITY_SHORT: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic', s: 'special' };
-
-/** `ur`, `izzet` -> ['U', 'R'], in WUBRG order; null for anything else. */
-function colorLetters(value: string): string[] | null {
-  const letters = (COMBOS.get(value) ?? value).toUpperCase();
-  if (!/^[WUBRG]+$/.test(letters) || new Set(letters).size !== letters.length) return null;
-  return COLORS.filter((c) => letters.includes(c));
+function wordReader(field: 'rulesText' | 'type' | 'otag', keys: readonly string[], { allowRegex = false } = {}): FieldReader {
+  return (node, state) => {
+    const term = matchTerm(node, keys, [':'], allowRegex);
+    return term && { [field]: appendWord(state[field], fieldWord(term)) };
+  };
 }
 
-/** `-c:c`, `-color=colorless`. */
-function notColorless(node: Expr): boolean {
-  if (node.kind !== 'term' || !node.negated || node.exact || node.regex) return false;
-  return ['c', 'color'].includes(node.key) && (node.op === ':' || node.op === '=') && ['c', 'colorless'].includes(node.value.toLowerCase());
+function comparisonReader(field: 'manaValue' | 'power' | 'toughness' | 'year', keys: readonly string[]): FieldReader {
+  return (node) => {
+    const term = matchTerm(node, keys, COMPARISON);
+    return term && { [field]: fieldComparison(term) };
+  };
 }
 
-/** `(c<=ur -c:c)`, either way round -> ['U', 'R']; null for anything else. */
+function choiceReader(field: 'format' | 'order' | 'direction', keys: readonly string[], choices: readonly string[], ops: readonly Op[] = [':']): FieldReader {
+  return (node) => {
+    const value = matchTerm(node, keys, ops)?.value.toLowerCase();
+    return value && choices.includes(value) ? { [field]: value } : null;
+  };
+}
+
+function readColors(node: Expr): Partial<QueryState> | null {
+  const value = matchTerm(node, COLOR_KEYS, EQUALITY)?.value.toLowerCase();
+  if (value === 'c' || value === 'colorless') return { colorless: true };
+  const single = matchTerm(node, COLOR_KEYS, ['='])?.value.toUpperCase() ?? '';
+  if (isOneOf(COLORS, single)) return { colors: [single] };
+  const atMost = atMostColors(node);
+  if (atMost) return { colors: atMost };
+  const combos = exactCombos(node);
+  return combos && { colorCombos: combos };
+}
+
+/** `(c<=ur -c:c)`, either way round -> ['U', 'R']. */
 function atMostColors(node: Expr): string[] | null {
   if (node.kind !== 'group' || node.negated || node.body?.kind !== 'and' || node.body.items.length !== 2) return null;
   const { items } = node.body;
-  const atMost = items.map((item) => keyed(item, ['c', 'color'], ['<='])).find((t) => t !== null);
-  return atMost && items.some(notColorless) ? colorLetters(atMost.value.toLowerCase()) : null;
+  const atMost = items.map((item) => matchTerm(item, COLOR_KEYS, ['<='])).find((term) => term !== null);
+  return atMost && items.some(isNotColorless) ? colorLetters(atMost.value.toLowerCase()) : null;
 }
 
-interface Claimer {
-  field: FieldId;
-  /** Takes every condition it matches (they add up), not only the first. */
-  many?: boolean;
-  /** What `node` sets in the form, given what the conditions before it set; null if it isn't this field's. */
-  read: (node: Expr, state: QueryState) => Partial<QueryState> | null;
+function isNotColorless(node: Expr): boolean {
+  if (node.kind !== 'term' || !node.negated || node.exact || node.regex) return false;
+  return COLOR_KEYS.includes(node.key) && (node.op === ':' || node.op === '=') && ['c', 'colorless'].includes(node.value.toLowerCase());
 }
 
-const has = <T extends string>(list: readonly T[], v: string): v is T => (list as readonly string[]).includes(v);
-
-const CLAIMERS: readonly Claimer[] = [
-  {
-    field: 'name',
-    many: true,
-    read: (n, s) => {
-      const t = keyed(n, ['', 'name'], ['', ':']);
-      return t ? { name: add(s.name, t.value) } : null;
-    },
-  },
-  {
-    field: 'text',
-    many: true,
-    read: (n, s) => {
-      const t = keyed(n, ['o', 'oracle'], [':'], true);
-      return t ? { text: add(s.text, word(t)) } : null;
-    },
-  },
-  {
-    field: 'type',
-    many: true,
-    read: (n, s) => {
-      const t = keyed(n, ['t', 'type'], [':'], true);
-      return t ? { type: add(s.type, word(t)) } : null;
-    },
-  },
-  {
-    field: 'colors',
-    read: (n) => {
-      const value = keyed(n, ['c', 'color'], EQ)?.value.toLowerCase();
-      if (value === 'c' || value === 'colorless') return { colorless: true };
-      const one = keyed(n, ['c', 'color'], ['='])?.value.toUpperCase() ?? '';
-      if (has(COLORS, one)) return { colors: [one] };
-      const several = atMostColors(n);
-      if (several) return { colors: several };
-      // `c:izzet` is "at least blue and red"; only `c=` is the exact combination.
-      if (!alternatives(n)?.every((alt) => (alt as Term).op === '=')) return null;
-      const combos = anyOf(n, ['c', 'color'], (v) => (COMBOS.has(v) ? v : null));
-      return combos ? { colorCombos: combos } : null;
-    },
-  },
-  {
-    field: 'manaValue',
-    read: (n) => {
-      const t = keyed(n, ['mv', 'cmc', 'manavalue'], CMP);
-      return t ? { manaValue: compareText(t) } : null;
-    },
-  },
-  {
-    field: 'rarity',
-    read: (n) => {
-      const rarity = anyOf(n, ['r', 'rarity'], (v) => (has(RARITIES, v) ? v : (RARITY_SHORT[v] ?? null)));
-      return rarity ? { rarity } : null;
-    },
-  },
-  {
-    field: 'sets',
-    read: (n) => {
-      const sets = anyOf(n, ['s', 'e', 'set', 'edition'], (v) => (/^[a-z0-9]+$/.test(v) ? v : null));
-      return sets ? { sets } : null;
-    },
-  },
-  {
-    field: 'format',
-    read: (n) => {
-      const t = keyed(n, ['f', 'format', 'legal'], EQ);
-      const v = t?.value.toLowerCase() ?? '';
-      return has(FORMATS, v) ? { format: v } : null;
-    },
-  },
-  {
-    field: 'price',
-    read: (n) => {
-      const t = keyed(n, ['usd', 'eur'], ['<=']);
-      return t && NUMBER.test(t.value) ? { priceMax: t.value, priceCurrency: t.key as QueryState['priceCurrency'] } : null;
-    },
-  },
-  {
-    field: 'power',
-    read: (n) => {
-      const t = keyed(n, ['pow', 'power'], CMP);
-      return t ? { power: compareText(t) } : null;
-    },
-  },
-  {
-    field: 'toughness',
-    read: (n) => {
-      const t = keyed(n, ['tou', 'toughness'], CMP);
-      return t ? { toughness: compareText(t) } : null;
-    },
-  },
-  {
-    field: 'artist',
-    read: (n) => {
-      const t = keyed(n, ['a', 'artist'], [':']);
-      return t ? { artist: t.value } : null;
-    },
-  },
-  {
-    field: 'otag',
-    many: true,
-    read: (n, s) => {
-      const t = keyed(n, ['otag', 'oracletag', 'function'], [':']);
-      return t ? { otag: add(s.otag, word(t)) } : null;
-    },
-  },
-  {
-    field: 'year',
-    read: (n) => {
-      const t = keyed(n, ['year'], CMP);
-      return t ? { year: compareText(t) } : null;
-    },
-  },
-  {
-    field: 'flags',
-    many: true,
-    read: (n, s) => {
-      const v = keyed(n, ['is'], [':'])?.value.toLowerCase() ?? '';
-      return has(FLAGS, v) ? { flags: s.flags.includes(v) ? s.flags : [...s.flags, v] } : null;
-    },
-  },
-  {
-    field: 'order',
-    read: (n) => {
-      const v = keyed(n, ['order'], [':'])?.value.toLowerCase() ?? '';
-      return has(ORDERS, v) ? { order: v } : null;
-    },
-  },
-  {
-    field: 'direction',
-    read: (n) => {
-      const v = keyed(n, ['direction'], [':'])?.value.toLowerCase() ?? '';
-      return v === 'asc' || v === 'desc' ? { direction: v } : null;
-    },
-  },
-];
-
-/**
- * Reads the form out of a query. Each top-level condition goes to the first
- * field that can show it; a field that holds one value takes only the first
- * condition it matches, and later ones become pins like anything else the form
- * has no field for.
- */
-export function readQuery(query: string): QueryReading {
-  const conditions = topLevel(parseQuery(query)).map((node) => ({ node, start: node.start, end: node.end, text: query.slice(node.start, node.end) }));
-  let state: QueryState = EMPTY_QUERY;
-  const claims = new Map<FieldId, Condition[]>();
-  const extras: Condition[] = [];
-
-  next: for (const condition of conditions) {
-    for (const claimer of CLAIMERS) {
-      if (!claimer.many && claims.has(claimer.field)) continue;
-      const patch = claimer.read(condition.node, state);
-      if (!patch) continue;
-      state = { ...state, ...patch };
-      claims.set(claimer.field, [...(claims.get(claimer.field) ?? []), condition]);
-      continue next;
-    }
-    extras.push(condition);
-  }
-  return { state, conditions, claims, extras };
+// `c:izzet` means "at least blue and red"; only `c=izzet` is exactly the combination.
+function exactCombos(node: Expr): string[] | null {
+  if (!alternatives(node)?.every((alternative) => alternative.kind === 'term' && alternative.op === '=')) return null;
+  return alternativeValues(node, COLOR_KEYS, (value) => (COMBO_COLORS.has(value) ? value : null));
 }
 
-/**
- * Writes the form back into the query. Only the fields whose terms change are
- * touched: their conditions are rewritten in place, one term each, extra ones
- * dropped, new ones added after the field's last condition (or at the end).
- * Everything else keeps its text and its place.
- */
-export function writeQuery(query: string, next: QueryState): string {
-  const reading = readQuery(query);
-  const replace = new Map<Condition, string | null>();
-  const after = new Map<Condition | null, string[]>();
-
-  for (const field of FIELDS) {
-    const was = FIELD_TERMS[field](reading.state);
-    const now = FIELD_TERMS[field](next);
-    if (was.length === now.length && was.every((t, i) => t === now[i])) continue;
-    const claimed = reading.claims.get(field) ?? [];
-    claimed.forEach((c, i) => replace.set(c, now[i] ?? null));
-    const rest = now.slice(claimed.length);
-    const anchor = claimed[claimed.length - 1] ?? null;
-    if (rest.length) after.set(anchor, [...(after.get(anchor) ?? []), ...rest]);
-  }
-  if (replace.size === 0 && after.size === 0) return query;
-  return assemble(query, reading.conditions, replace, after);
+function colorLetters(value: string): string[] | null {
+  const letters = (COMBO_COLORS.get(value) ?? value).toUpperCase();
+  if (!/^[WUBRG]+$/.test(letters) || new Set(letters).size !== letters.length) return null;
+  return COLORS.filter((color) => letters.includes(color));
 }
 
-/**
- * Takes one top-level condition out of the query, with the space or connector
- * that tied it to its neighbour. Found where it was read; if the query has been
- * typed into since and it moved, found by its text; if it's gone, nothing changes.
- */
-export function removeCondition(query: string, condition: Pick<Condition, 'start' | 'end' | 'text'>): string {
-  const { conditions } = readQuery(query);
-  const target =
-    conditions.find((c) => c.start === condition.start && c.end === condition.end && c.text === condition.text) ??
-    conditions.find((c) => c.text === condition.text);
-  return target ? assemble(query, conditions, new Map([[target, null]]), new Map()) : query;
+function isOneOf<T extends string>(list: readonly T[], value: string): value is T {
+  return (list as readonly string[]).includes(value);
 }
 
-/**
- * Lays the conditions back out with their edits. A kept condition keeps the
- * text that stood before it (a space, ` and `), so removing one never leaves a
- * dangling connector; whatever sat outside every condition — spaces, a
- * half-typed `or` — is dropped.
- */
-function assemble(query: string, conditions: Condition[], replace: Map<Condition, string | null>, after: Map<Condition | null, string[]>): string {
-  const parts: { sep: string; text: string }[] = [];
-  conditions.forEach((c, i) => {
-    const text = replace.has(c) ? replace.get(c) : c.text;
-    if (text) parts.push({ sep: i === 0 ? ' ' : query.slice((conditions[i - 1] as Condition).end, c.start) || ' ', text });
-    for (const added of after.get(c) ?? []) parts.push({ sep: ' ', text: added });
-  });
-  for (const added of after.get(null) ?? []) parts.push({ sep: ' ', text: added });
+function appendWord(words: string, word: string): string {
+  return words ? `${words} ${word}` : word;
+}
 
-  // A whole query of `a or b` would swallow whatever is ANDed on after it: `a or b c` is `a or (b c)`.
-  const lone = conditions.length === 1 ? conditions[0] : undefined;
-  const first = parts[0];
-  if (lone?.node.kind === 'or' && !replace.has(lone) && parts.length > 1 && first) first.text = `(${first.text})`;
+function fieldWord(term: Term): string {
+  if (term.regex) return `/${term.value}/`;
+  return /[\s"]/.test(term.value) ? `"${term.value}"` : term.value;
+}
 
-  return parts.map((p, i) => (i === 0 ? p.text : p.sep + p.text)).join('');
+function fieldComparison(term: Term): string {
+  return term.op === '=' || term.op === ':' ? term.value : `${term.op}${term.value}`;
 }

@@ -8,7 +8,7 @@ describe('scryfall syntax builder', () => {
     expect(buildQuery({ ...EMPTY_QUERY, colors: ['R', 'W'], type: 'instant' })).toBe('t:instant (c<=wr -c:c)');
     expect(buildQuery({ ...EMPTY_QUERY, colorless: true, manaValue: '<=3' })).toBe('c=c mv<=3');
     expect(buildQuery({ ...EMPTY_QUERY, rarity: ['rare', 'mythic'], format: 'commander' })).toBe('(r:rare or r:mythic) f:commander');
-    expect(buildQuery({ ...EMPTY_QUERY, text: 'draw "a card"', priceMax: '1.5', priceCurrency: 'eur' })).toBe('o:draw o:"a card" eur<=1.5');
+    expect(buildQuery({ ...EMPTY_QUERY, rulesText: 'draw "a card"', priceMax: '1.5', priceCurrency: 'eur' })).toBe('o:draw o:"a card" eur<=1.5');
     expect(buildQuery({ ...EMPTY_QUERY, power: '>=4', year: '2020', flags: ['foil'], order: 'eur', direction: 'asc' })).toBe('pow>=4 year=2020 is:foil order:eur direction:asc');
   });
 
@@ -18,7 +18,6 @@ describe('scryfall syntax builder', () => {
     expect(q({ colors: ['R', 'U'] })).toBe('(c<=ur -c:c)');
     expect(q({ colorCombos: ['izzet'] })).toBe('c=izzet');
     expect(q({ colorCombos: ['orzhov', 'izzet'] })).toBe('(c=orzhov or c=izzet)');
-    // Colorless overrides everything else in the field.
     expect(q({ colorless: true, colors: ['R'], colorCombos: ['izzet'] })).toBe('c=c');
   });
 
@@ -26,15 +25,11 @@ describe('scryfall syntax builder', () => {
     const none = { colors: [], colorless: false, colorCombos: [] };
     const red = toggleColorOption(none, { kind: 'color', value: 'R' });
     expect(red).toEqual({ ...none, colors: ['R'] });
-    // Single colors accumulate…
     expect(toggleColorOption(red, { kind: 'color', value: 'U' }).colors).toEqual(['R', 'U']);
-    // …and toggle off again.
     expect(toggleColorOption(red, { kind: 'color', value: 'R' })).toEqual(none);
-    // A combination clears the colors; several combinations accumulate.
     const izzet = toggleColorOption(red, { kind: 'combo', value: 'izzet' });
     expect(izzet).toEqual({ ...none, colorCombos: ['izzet'] });
     expect(toggleColorOption(izzet, { kind: 'combo', value: 'boros' }).colorCombos).toEqual(['izzet', 'boros']);
-    // Colorless clears both; a color or combination clears colorless.
     const colorless = toggleColorOption(izzet, { kind: 'colorless' });
     expect(colorless).toEqual({ ...none, colorless: true });
     expect(toggleColorOption(colorless, { kind: 'color', value: 'G' })).toEqual({ ...none, colors: ['G'] });
@@ -47,5 +42,4 @@ describe('scryfall syntax builder', () => {
     expect(buildQuery({ ...EMPTY_QUERY, sets: ['MH3', 'ltr'] })).toBe('(s:mh3 or s:ltr)');
     expect(buildQuery({ ...EMPTY_QUERY, sets: ['mh3'], rarity: ['rare'] })).toBe('r:rare s:mh3');
   });
-
 });

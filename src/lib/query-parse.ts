@@ -1,12 +1,6 @@
-// Scryfall query text -> a tree that remembers where each part sits in the text,
-// so the builder can read conditions out of the box and rewrite them in place.
-// Tolerant: anything typed parses into something, half-finished input included.
-// No DOM, unit-tested.
-
 export type Op = ':' | '=' | '!=' | '<' | '<=' | '>' | '>=';
 
 interface Span {
-  /** Offsets into the query text, end exclusive. */
   start: number;
   end: number;
 }
@@ -14,171 +8,160 @@ interface Span {
 export interface Term extends Span {
   kind: 'term';
   negated: boolean;
-  /** Lower-case keyword; '' for a bare word, which Scryfall searches in card names. */
+  /** '' for a bare word, which Scryfall matches against card names. */
   key: string;
   op: Op | '';
-  /** Without its quotes or slashes. */
   value: string;
   quoted: boolean;
-  /** `o:/^{T}:/` */
   regex: boolean;
-  /** `!fire`, `!"Lightning Bolt"`: that exact card name. */
   exact: boolean;
 }
 
 export interface Group extends Span {
   kind: 'group';
   negated: boolean;
-  /** null for `()`. */
   body: Expr | null;
 }
 
-/** Two or more items. Scryfall ANDs whatever sits side by side, and AND binds tighter than OR. */
 export interface List extends Span {
   kind: 'and' | 'or';
   items: Expr[];
 }
 
-/** A `)` with nothing to close. Kept so that no part of the text goes missing. */
 export interface Stray extends Span {
   kind: 'stray';
 }
 
 export type Expr = Term | Group | List | Stray;
 
-type Token =
-  | (Span & { type: 'open'; negated: boolean })
-  | (Span & { type: 'close' })
-  | (Span & { type: 'or' })
-  | (Span & { type: 'and' })
-  | { type: 'leaf'; leaf: Term | Stray };
+type OpenToken = Span & { type: 'open'; negated: boolean };
+type Token = OpenToken | (Span & { type: 'close' | 'or' | 'and' }) | { type: 'leaf'; leaf: Term | Stray };
 
-const OPS: readonly Op[] = ['<=', '>=', '!=', ':', '=', '<', '>'];
+const OPERATORS: readonly Op[] = ['<=', '>=', '!=', ':', '=', '<', '>'];
 const KEYWORD = /^[a-zA-Z]+/;
 
-function tokenize(query: string): Token[] {
-  const tokens: Token[] = [];
-  let depth = 0;
-  let i = 0;
-
-  /** Reads a `"…"` or `/…/` from its opening mark; an unterminated one runs to the end. */
-  const delimited = (mark: string): string => {
-    let out = '';
-    i++;
-    while (i < query.length && query[i] !== mark) {
-      if (query[i] === '\\' && query[i + 1] === mark) i++;
-      out += query[i];
-      i++;
-    }
-    i++;
-    return out;
-  };
-  const word = (): string => {
-    const from = i;
-    while (i < query.length && !/[\s()]/.test(query[i] as string)) i++;
-    return query.slice(from, i);
-  };
-
-  while (i < query.length) {
-    const ch = query[i] as string;
-    const start = i;
-    if (/\s/.test(ch)) {
-      i++;
-      continue;
-    }
-    if (ch === '(' || (ch === '-' && query[i + 1] === '(')) {
-      i += ch === '(' ? 1 : 2;
-      depth++;
-      tokens.push({ type: 'open', negated: ch === '-', start, end: i });
-      continue;
-    }
-    if (ch === ')') {
-      i++;
-      if (depth > 0) {
-        depth--;
-        tokens.push({ type: 'close', start, end: i });
-      } else tokens.push({ type: 'leaf', leaf: { kind: 'stray', start, end: i } });
-      continue;
-    }
-
-    const negated = ch === '-';
-    if (negated) i++;
-    const exact = query[i] === '!';
-    if (exact) i++;
-
-    const term: Omit<Term, 'end'> = { kind: 'term', negated, key: '', op: '', value: '', quoted: false, regex: false, exact, start };
-    const key = exact ? null : KEYWORD.exec(query.slice(i));
-    const op = key ? OPS.find((o) => query.startsWith(o, i + key[0].length)) : undefined;
-    if (key && op) {
-      term.key = key[0].toLowerCase();
-      term.op = op;
-      i += key[0].length + op.length;
-    }
-    if (query[i] === '"') {
-      term.quoted = true;
-      term.value = delimited('"');
-    } else if (query[i] === '/' && term.op) {
-      term.regex = true;
-      term.value = delimited('/');
-    } else term.value = word();
-    i = Math.min(i, query.length);
-
-    const lower = term.value.toLowerCase();
-    if (!term.op && !negated && !exact && !term.quoted && (lower === 'or' || lower === 'and')) {
-      tokens.push({ type: lower, start, end: i });
-    } else tokens.push({ type: 'leaf', leaf: { ...term, end: i } });
-  }
-  return tokens;
-}
-
 /**
- * Parses a Scryfall query. Returns null for a blank one. Lists of one collapse
- * into their item, and a connector with nothing on one side (`t:elf or`, being
- * typed) is left out of the tree: its text sits between the nodes.
+ * Tolerant of half-typed input: everything parses into something. A connector
+ * with nothing on one side (`t:elf or`) is left out of the tree.
  */
 export function parseQuery(query: string): Expr | null {
   const tokens = tokenize(query);
   let pos = 0;
-  const peek = () => tokens[pos];
 
-  const list = (kind: 'and' | 'or', items: Expr[]): Expr | null => {
-    if (items.length === 0) return null;
-    if (items.length === 1) return items[0] as Expr;
-    return { kind, items, start: (items[0] as Expr).start, end: (items[items.length - 1] as Expr).end };
-  };
-
-  const or = (): Expr | null => {
+  const parseOr = (): Expr | null => {
     const items: Expr[] = [];
     for (;;) {
-      const item = and();
+      const item = parseAnd();
       if (item) items.push(item);
-      if (peek()?.type !== 'or') break;
+      if (tokens[pos]?.type !== 'or') return listOf('or', items);
       pos++;
     }
-    return list('or', items);
   };
 
-  const and = (): Expr | null => {
+  const parseAnd = (): Expr | null => {
     const items: Expr[] = [];
-    for (let t = peek(); t && t.type !== 'or' && t.type !== 'close'; t = peek()) {
+    for (let token = tokens[pos]; token && token.type !== 'or' && token.type !== 'close'; token = tokens[pos]) {
       pos++;
-      if (t.type === 'and') continue;
-      if (t.type === 'open') {
-        const body = or();
-        const close = peek();
-        const closed = close?.type === 'close';
-        if (closed) pos++;
-        items.push({ kind: 'group', negated: t.negated, body, start: t.start, end: closed ? close.end : Math.max(t.end, body?.end ?? 0) });
-      } else items.push(t.leaf);
+      if (token.type === 'open') items.push(parseGroup(token));
+      else if (token.type === 'leaf') items.push(token.leaf);
     }
-    return list('and', items);
+    return listOf('and', items);
   };
 
-  return or();
+  const parseGroup = (open: OpenToken): Group => {
+    const body = parseOr();
+    const close = tokens[pos];
+    const closed = close?.type === 'close';
+    if (closed) pos++;
+    const end = closed ? close.end : Math.max(open.end, body?.end ?? 0);
+    return { kind: 'group', negated: open.negated, body, start: open.start, end };
+  };
+
+  return parseOr();
 }
 
 /** The conditions a query ANDs together at its top level, in order. */
 export function topLevel(root: Expr | null): Expr[] {
   if (!root) return [];
   return root.kind === 'and' ? root.items : [root];
+}
+
+function listOf(kind: 'and' | 'or', items: Expr[]): Expr | null {
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) return null;
+  return items.length === 1 ? first : { kind, items, start: first.start, end: last.end };
+}
+
+function tokenize(query: string): Token[] {
+  const tokens: Token[] = [];
+  let depth = 0;
+  let i = 0;
+
+  const readDelimited = (mark: string): string => {
+    let text = '';
+    i++;
+    while (i < query.length && query[i] !== mark) {
+      if (query[i] === '\\' && query[i + 1] === mark) i++;
+      text += query[i];
+      i++;
+    }
+    i = Math.min(i + 1, query.length);
+    return text;
+  };
+
+  const readWord = (): string => {
+    const start = i;
+    while (i < query.length && !/[\s()]/.test(query[i] as string)) i++;
+    return query.slice(start, i);
+  };
+
+  const readTerm = (start: number): Term => {
+    const negated = query[i] === '-';
+    if (negated) i++;
+    const exact = query[i] === '!';
+    if (exact) i++;
+
+    const keyword = exact ? undefined : KEYWORD.exec(query.slice(i))?.[0];
+    const op = keyword && OPERATORS.find((candidate) => query.startsWith(candidate, i + keyword.length));
+    const key = keyword && op ? keyword.toLowerCase() : '';
+    if (keyword && op) i += keyword.length + op.length;
+
+    const quoted = query[i] === '"';
+    const regex = !quoted && query[i] === '/' && key !== '';
+    const value = quoted ? readDelimited('"') : regex ? readDelimited('/') : readWord();
+    return { kind: 'term', negated, key, op: op || '', value, quoted, regex, exact, start, end: i };
+  };
+
+  while (i < query.length) {
+    const start = i;
+    const char = query[i] as string;
+    if (/\s/.test(char)) {
+      i++;
+    } else if (char === '(' || query.startsWith('-(', i)) {
+      const negated = char === '-';
+      i += negated ? 2 : 1;
+      depth++;
+      tokens.push({ type: 'open', negated, start, end: i });
+    } else if (char === ')') {
+      i++;
+      if (depth > 0) {
+        depth--;
+        tokens.push({ type: 'close', start, end: i });
+      } else {
+        tokens.push({ type: 'leaf', leaf: { kind: 'stray', start, end: i } });
+      }
+    } else {
+      const term = readTerm(start);
+      const connector = connectorOf(term);
+      tokens.push(connector ? { type: connector, start, end: term.end } : { type: 'leaf', leaf: term });
+    }
+  }
+  return tokens;
+}
+
+function connectorOf(term: Term): 'or' | 'and' | null {
+  if (term.op || term.negated || term.exact || term.quoted) return null;
+  const word = term.value.toLowerCase();
+  return word === 'or' || word === 'and' ? word : null;
 }

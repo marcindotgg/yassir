@@ -1,15 +1,7 @@
-// What Scryfall's keywords mean, so a condition the form has no field for can
-// still be shown by name ("Oracle tag: removal", "not Reprint") on a pin that
-// removes it. No DOM, unit-tested.
-
-import type { Expr, Op, Term } from './query-parse';
+import type { Expr, Group, List, Op, Term } from './query-parse';
 import { COLOR_COMBO_GROUPS } from './scryfall-syntax';
 
-/**
- * Every keyword Scryfall accepts, under the name a pin shows for it. Each alias
- * was checked against the live API on 2026-09-24: an unknown keyword comes back
- * with an "Unknown keyword" warning (`n:` and `color_identity:` do; these don't).
- */
+// An alias Scryfall doesn't know comes back from api.scryfall.com with an "Unknown keyword" warning.
 const KEYWORDS: readonly (readonly [label: string, aliases: readonly string[]])[] = [
   ['Name', ['name']],
   ['Colors', ['c', 'color']],
@@ -79,14 +71,9 @@ const KEYWORDS: readonly (readonly [label: string, aliases: readonly string[]])[
   ['Display', ['display']],
 ];
 
-const LABELS = new Map(KEYWORDS.flatMap(([label, aliases]) => aliases.map((alias): [string, string] => [alias, label])));
+const KEYWORD_LABELS = new Map(KEYWORDS.flatMap(([label, aliases]) => aliases.map((alias) => [alias, label] as const)));
 
-/** Whether Scryfall knows `key`; it ignores a term whose keyword it doesn't. */
-export const isKeyword = (key: string): boolean => LABELS.has(key.toLowerCase());
-
-/** `is:` / `not:` values, named. Any other value still shows, as "Is: value". */
 const FLAG_LABELS: Record<string, string> = {
-  // Faces and layouts
   dfc: 'Double-faced',
   mdfc: 'Modal double-faced',
   transform: 'Transforming',
@@ -94,7 +81,6 @@ const FLAG_LABELS: Record<string, string> = {
   flip: 'Flip card',
   meld: 'Meld card',
   leveler: 'Leveler',
-  // What the card is
   spell: 'Spell',
   permanent: 'Permanent',
   historic: 'Historic',
@@ -107,7 +93,6 @@ const FLAG_LABELS: Record<string, string> = {
   hybrid: 'Hybrid mana',
   phyrexian: 'Phyrexian mana',
   funny: 'Funny (Un-card)',
-  // Printings
   reprint: 'Reprint',
   firstprint: 'First printing',
   unique: 'Single printing',
@@ -131,7 +116,6 @@ const FLAG_LABELS: Record<string, string> = {
   masterpiece: 'Masterpiece',
   colorshifted: 'Colorshifted',
   spotlight: 'Story spotlight',
-  // Commander and formats
   commander: 'Commander',
   brawler: 'Brawl commander',
   companion: 'Companion',
@@ -140,7 +124,6 @@ const FLAG_LABELS: Record<string, string> = {
   duelcommander: 'Duel commander',
   reserved: 'Reserved List',
   gamechanger: 'Game Changer',
-  // Land cycles
   dual: 'Original dual',
   fetchland: 'Fetch land',
   shockland: 'Shock land',
@@ -163,94 +146,95 @@ const FLAG_LABELS: Record<string, string> = {
 };
 
 const COLOR_WORDS: Record<string, string> = { c: 'colorless', colorless: 'colorless', m: 'multicolor', multicolor: 'multicolor' };
-const COMBOS = new Set([...COLOR_COMBO_GROUPS.flatMap((g) => g.combos.map((c) => c.name)), 'silverquill', 'prismari', 'witherbloom', 'lorehold', 'quandrix']);
+const COLOR_NICKNAMES = new Set([...COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => combo.name)), 'silverquill', 'prismari', 'witherbloom', 'lorehold', 'quandrix']);
 const COLOR_KEYS = new Set(['c', 'color', 'id', 'identity', 'ci', 'commander']);
 const SET_KEYS = new Set(['s', 'e', 'set', 'edition', 'in']);
-const OP_TEXT: Record<Op, string> = { ':': ': ', '=': ' = ', '!=': ' ≠ ', '<': ' < ', '<=': ' ≤ ', '>': ' > ', '>=': ' ≥ ' };
+const PHRASE_KEYS = new Set(['is', 'not', 'has', 'new', 'include']);
+const OPERATOR_TEXT: Record<Op, string> = { ':': ': ', '=': ' = ', '!=': ' ≠ ', '<': ' < ', '<=': ' ≤ ', '>': ' > ', '>=': ' ≥ ' };
 
 export interface Description {
   text: string;
-  /** False when some keyword in it is one Scryfall doesn't know, and will ignore. */
   known: boolean;
 }
 
-export interface Names {
-  /** Set code -> set name, from the Scryfall set list. */
-  set?: (code: string) => string | undefined;
-}
+export type SetNameLookup = (code: string) => string | undefined;
 
-const capitalize = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
-
-function value(term: Term, names: Names): string {
-  const v = term.value;
-  if (!v) return '…';
-  if (term.regex) return `/${v}/`;
-  const lower = v.toLowerCase();
-  if (COLOR_KEYS.has(term.key)) {
-    if (COLOR_WORDS[lower]) return COLOR_WORDS[lower];
-    if (COMBOS.has(lower)) return capitalize(lower);
-    if (/^[wubrg]+$/.test(lower)) return lower.toUpperCase();
-  }
-  if (SET_KEYS.has(term.key)) {
-    const name = names.set?.(lower);
-    if (name) return name;
-  }
-  return /\s/.test(v) ? `“${v}”` : v;
-}
-
-/** Keywords whose value says it all: `is:foil` -> "Foil", `has:watermark` -> "Has watermark". */
-const SPOKEN = new Set(['is', 'not', 'has', 'new', 'include']);
-
-/** "Type: ", "Mana value ≥ " — what comes before a term's value. */
-function lead(term: Term): Description {
-  if (!term.key) return { text: term.exact ? 'Exact name: ' : 'Name: ', known: true };
-  const label = LABELS.get(term.key);
-  return { text: `${label ?? term.key}${OP_TEXT[term.op as Op]}`, known: label !== undefined };
-}
-
-/** One term, e.g. `-t:creature` -> "not Type: creature". */
-function describeTerm(term: Term, names: Names): Description {
-  if (SPOKEN.has(term.key) && term.op === ':' && term.value) {
-    const v = term.value.toLowerCase();
-    if (term.key !== 'is' && term.key !== 'not') return { text: `${term.negated ? 'not ' : ''}${capitalize(term.key)} ${v}`, known: true };
-    // `-not:reprint` is a double negative: a reprint.
-    return { text: `${(term.key === 'not') !== term.negated ? 'not ' : ''}${FLAG_LABELS[v] ?? `Is: ${v}`}`, known: true };
-  }
-  const head = lead(term);
-  return { text: `${term.negated ? 'not ' : ''}${head.text}${value(term, names)}`, known: head.known };
-}
-
-/**
- * Names a condition for its pin. Alternatives on one keyword read as one:
- * `(t:goblin or t:elf)` -> "Type: goblin or elf".
- */
-export function describe(node: Expr, names: Names = {}): Description {
+export function describeNode(node: Expr, setName?: SetNameLookup): Description {
   switch (node.kind) {
     case 'term':
-      return describeTerm(node, names);
+      return describeTerm(node, setName);
     case 'stray':
       return { text: 'Unmatched “)”', known: false };
-    case 'group': {
-      if (!node.body) return { text: `${node.negated ? 'not ' : ''}( )`, known: true };
-      const inner = describe(node.body, names);
-      return { text: node.negated ? `not (${inner.text})` : inner.text, known: inner.known };
-    }
+    case 'group':
+      return describeGroup(node, setName);
     case 'and':
-    case 'or': {
-      const join = ` ${node.kind} `;
-      const terms = node.items.every((i): i is Term => i.kind === 'term') ? (node.items as Term[]) : [];
-      const first = terms[0];
-      const alike = (t: Term) => !t.negated && t.key === first?.key && t.op === first.op && t.exact === first.exact;
-      if (first && !SPOKEN.has(first.key) && terms.every(alike)) {
-        const head = lead(first);
-        return { text: head.text + terms.map((t) => value(t, names)).join(join), known: head.known };
-      }
-      const parts = node.items.map((i) => {
-        const d = describe(i, names);
-        // A nested list of the other kind keeps its brackets: "a or (b and c)".
-        return { ...d, text: i.kind === 'and' || i.kind === 'or' ? `(${d.text})` : d.text };
-      });
-      return { text: parts.map((p) => p.text).join(join), known: parts.every((p) => p.known) };
-    }
+    case 'or':
+      return describeList(node, setName);
   }
+}
+
+function describeTerm(term: Term, setName?: SetNameLookup): Description {
+  if (PHRASE_KEYS.has(term.key) && term.op === ':' && term.value) return { text: describePhrase(term), known: true };
+  const key = describeKey(term);
+  return { text: `${term.negated ? 'not ' : ''}${key.text}${describeValue(term, setName)}`, known: key.known };
+}
+
+function describePhrase(term: Term): string {
+  const value = term.value.toLowerCase();
+  if (term.key !== 'is' && term.key !== 'not') return `${term.negated ? 'not ' : ''}${capitalize(term.key)} ${value}`;
+  const negated = (term.key === 'not') !== term.negated;
+  return `${negated ? 'not ' : ''}${FLAG_LABELS[value] ?? `Is: ${value}`}`;
+}
+
+function describeGroup(group: Group, setName?: SetNameLookup): Description {
+  if (!group.body) return { text: `${group.negated ? 'not ' : ''}( )`, known: true };
+  const inner = describeNode(group.body, setName);
+  return { text: group.negated ? `not (${inner.text})` : inner.text, known: inner.known };
+}
+
+function describeList(list: List, setName?: SetNameLookup): Description {
+  const joiner = ` ${list.kind} `;
+  const sameKey = sameKeyTerms(list.items);
+  if (sameKey) {
+    const key = describeKey(sameKey[0] as Term);
+    return { text: key.text + sameKey.map((term) => describeValue(term, setName)).join(joiner), known: key.known };
+  }
+  const parts = list.items.map((item) => {
+    const description = describeNode(item, setName);
+    const nested = item.kind === 'and' || item.kind === 'or';
+    return { ...description, text: nested ? `(${description.text})` : description.text };
+  });
+  return { text: parts.map((part) => part.text).join(joiner), known: parts.every((part) => part.known) };
+}
+
+function sameKeyTerms(items: Expr[]): Term[] | null {
+  const [first] = items;
+  if (first?.kind !== 'term' || PHRASE_KEYS.has(first.key)) return null;
+  const isAlike = (item: Expr) => item.kind === 'term' && !item.negated && item.key === first.key && item.op === first.op && item.exact === first.exact;
+  return items.every(isAlike) ? (items as Term[]) : null;
+}
+
+function describeKey(term: Term): Description {
+  if (!term.key) return { text: term.exact ? 'Exact name: ' : 'Name: ', known: true };
+  const label = KEYWORD_LABELS.get(term.key);
+  return { text: `${label ?? term.key}${OPERATOR_TEXT[term.op as Op]}`, known: label !== undefined };
+}
+
+function describeValue(term: Term, setName?: SetNameLookup): string {
+  const { value } = term;
+  if (!value) return '…';
+  if (term.regex) return `/${value}/`;
+  const lower = value.toLowerCase();
+  if (COLOR_KEYS.has(term.key)) {
+    if (COLOR_WORDS[lower]) return COLOR_WORDS[lower];
+    if (COLOR_NICKNAMES.has(lower)) return capitalize(lower);
+    if (/^[wubrg]+$/.test(lower)) return lower.toUpperCase();
+  }
+  const set = SET_KEYS.has(term.key) ? setName?.(lower) : undefined;
+  if (set) return set;
+  return /\s/.test(value) ? `“${value}”` : value;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

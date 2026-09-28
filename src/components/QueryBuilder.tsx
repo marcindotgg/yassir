@@ -1,109 +1,195 @@
 import { useRef, useState } from 'preact/hooks';
 import type { Condition } from '../lib/query-sync';
+import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, toggleItem, type FieldId, type QueryState } from '../lib/scryfall-syntax';
+import type { SuggestionGroup } from '../lib/suggestions';
 import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../lib/tag-suggestions';
-import { TYPE_GROUPS, type TypeGroup } from '../lib/type-suggestions';
-import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, type FieldId, type QueryState } from '../lib/scryfall-syntax';
+import { TYPE_GROUPS } from '../lib/type-suggestions';
 import { ColorSelect } from './ColorSelect';
 import { ConditionPins } from './ConditionPins';
 import { SetAutocomplete } from './SetAutocomplete';
 import { SuggestCombobox } from './SuggestCombobox';
-import type { useSets } from './useSets';
+import type { SetList } from './useSets';
 
-type Update = (update: (state: QueryState) => QueryState) => void;
+type FormUpdate = (update: (state: QueryState) => QueryState) => void;
 
-export interface QueryBuilderProps {
-  /** The query in the box: the form shows it and writes into it. */
-  query: string;
-  /** What the query says, field by field. */
+interface FormProps {
   state: QueryState;
-  /** Rewrites the fields `update` changes in the query; the rest of it stays as typed. */
-  onChange: Update;
-  /** Conditions in the query that no field can show. */
-  extras: readonly Condition[];
-  /** The query last changed by being typed into the box. */
+  onChange: FormUpdate;
+}
+
+interface QueryBuilderProps extends FormProps {
+  query: string;
+  otherConditions: readonly Condition[];
   typing: boolean;
+  searching: boolean;
+  setList: SetList;
   onRemove: (condition: Condition) => void;
   onClear: () => void;
   onSearch: () => void;
-  /** The query has been sent off and Scryfall's results are loading. */
-  searching: boolean;
-  sets: ReturnType<typeof useSets>;
 }
 
-const toggle = <T,>(list: T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+type TextFieldId = 'name' | 'rulesText' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
 
-/** What `field` writes into the query when set to `patch`. */
-const writes = (field: FieldId, patch: Partial<QueryState>): string => FIELD_TERMS[field]({ ...EMPTY_QUERY, ...patch }).join(' ');
-
-/**
- * A field's own copy of what is typed into it. The query keeps only what it can
- * use — `draw ` comes back as `draw`, a lone `>=` as nothing — so showing the
- * query's reading as-is would eat spaces and operators under the caret. The copy
- * gives way as soon as the query says something it wouldn't write.
- */
-function useDraft<T>(value: T, write: (value: T) => string): [T, (next: T) => void] {
-  const draft = useRef(value);
-  const [, rerender] = useState(0);
-  if (write(draft.current) !== write(value)) draft.current = value;
-  const set = (next: T) => {
-    draft.current = next;
-    rerender((n) => n + 1);
-  };
-  return [draft.current, set];
-}
-
-type TextFieldId = 'name' | 'text' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
-
-function TextField(props: { field: TextFieldId; label: string; placeholder: string; state: QueryState; onChange: Update }) {
-  const { field } = props;
-  const [text, setText] = useDraft(props.state[field], (v) => writes(field, { [field]: v }));
-  return (
-    <label class="sqb-field">
-      <span class="sqb-label">{props.label}</span>
-      <input
-        class="sqb-input"
-        value={text}
-        placeholder={props.placeholder}
-        onInput={(e) => {
-          const v = (e.target as HTMLInputElement).value;
-          setText(v);
-          props.onChange((s) => ({ ...s, [field]: v }));
-        }}
-      />
-    </label>
-  );
-}
-
-function SuggestField(props: {
-  field: 'type' | 'otag';
-  suggestions: readonly TypeGroup[];
-  descriptions?: ReadonlyMap<string, string>;
+interface TextFieldProps extends FormProps {
+  field: TextFieldId;
   label: string;
   placeholder: string;
-  state: QueryState;
-  onChange: Update;
-}) {
-  const { field } = props;
-  const [text, setText] = useDraft(props.state[field], (v) => writes(field, { [field]: v }));
+}
+
+export function QueryBuilder({ query, state, onChange, otherConditions, typing, searching, setList, onRemove, onClear, onSearch }: QueryBuilderProps) {
+  const setField = fieldSetter(onChange);
+  const isEmpty = !query.trim();
+
   return (
-    <div class="sqb-field">
-      <span class="sqb-label">{props.label}</span>
-      <SuggestCombobox
-        value={text}
-        placeholder={props.placeholder}
-        suggestions={props.suggestions}
-        descriptions={props.descriptions}
-        onInput={(v) => {
-          setText(v);
-          props.onChange((s) => ({ ...s, [field]: v }));
-        }}
-      />
+    <div class="sqb-stack sqb-builder">
+      <div class="sqb-builder-columns">
+        <CardFields state={state} onChange={onChange} setList={setList} />
+        <OtherFields state={state} onChange={onChange} />
+      </div>
+
+      <div class="sqb-field sqb-flags">
+        <span class="sqb-label">Flags (is:)</span>
+        <div class="sqb-wrap">
+          {FLAGS.map((flag) => (
+            <button
+              key={flag}
+              type="button"
+              class={`sqb-btn sqb-btn-sm sqb-flag-btn ${state.flags.includes(flag) ? 'sqb-btn-active' : ''}`}
+              onClick={() => setField('flags', toggleItem(state.flags, flag))}
+            >
+              {flag}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ConditionPins conditions={otherConditions} typing={typing} sets={setList.sets} onRemove={onRemove} />
+
+      <div class="sqb-row sqb-actions">
+        <button type="button" class="sqb-btn sqb-btn-ghost" disabled={isEmpty} onClick={onClear}>
+          Clear
+        </button>
+        <button
+          type="button"
+          class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`}
+          disabled={isEmpty}
+          aria-busy={searching}
+          onClick={searching ? undefined : onSearch}
+        >
+          {searching && <span class="sqb-spinner" aria-hidden="true" />}
+          {searching ? 'Searching…' : 'Search'}
+        </button>
+      </div>
     </div>
   );
 }
 
-function PriceField({ state, onChange }: { state: QueryState; onChange: Update }) {
-  const [price, setPrice] = useDraft({ priceCurrency: state.priceCurrency, priceMax: state.priceMax }, (v) => writes('price', v));
+function CardFields({ state, onChange, setList }: FormProps & { setList: SetList }) {
+  const setField = fieldSetter(onChange);
+  const form = { state, onChange };
+
+  return (
+    <div class="sqb-builder-column">
+      <TextField {...form} field="name" label="Name" placeholder="Lightning Bolt" />
+      <div class="sqb-pair sqb-pair-mana">
+        <ColorSelect
+          value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
+          onChange={(colors) => onChange((s) => ({ ...s, ...colors }))}
+        />
+        <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
+      </div>
+      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="legendary creature" />
+      <div class="sqb-field">
+        <span class="sqb-label">Rarity</span>
+        <div class="sqb-wrap">
+          {RARITIES.map((rarity) => (
+            <button
+              key={rarity}
+              type="button"
+              class={`sqb-btn sqb-btn-sm sqb-rarity-btn ${state.rarity.includes(rarity) ? 'sqb-btn-active' : ''}`}
+              onClick={() => setField('rarity', toggleItem(state.rarity, rarity))}
+            >
+              <span class={`sqb-rarity-dot sqb-rarity-${rarity}`} aria-hidden="true" />
+              {rarity.charAt(0).toUpperCase() + rarity.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <SetAutocomplete setList={setList} selected={state.sets} onChange={(codes) => setField('sets', codes)} />
+      <TextField {...form} field="rulesText" label="Rules text (o:)" placeholder='draw "a card"' />
+      <div class="sqb-pair">
+        <TextField {...form} field="power" label="Power (pow)" placeholder="e.g. 3, >=4, >tou" />
+        <TextField {...form} field="toughness" label="Toughness (tou)" placeholder="e.g. 3, <=2, >pow" />
+      </div>
+    </div>
+  );
+}
+
+function OtherFields({ state, onChange }: FormProps) {
+  const setField = fieldSetter(onChange);
+  const form = { state, onChange };
+
+  return (
+    <div class="sqb-builder-column sqb-builder-aside">
+      <PriceField {...form} />
+      <TextField {...form} field="year" label="Year" placeholder="e.g. 2020, >=2020" />
+      <label class="sqb-field">
+        <span class="sqb-label">Format (f:)</span>
+        <select class="sqb-select" value={state.format} onChange={(e) => setField('format', e.currentTarget.value)}>
+          <option value="">any</option>
+          {FORMATS.map((format) => (
+            <option key={format} value={format}>
+              {format}
+            </option>
+          ))}
+        </select>
+      </label>
+      <SuggestField {...form} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="removal" />
+      <TextField {...form} field="artist" label="Artist (a:)" placeholder="Seb McKinnon" />
+      <div class="sqb-field">
+        <span class="sqb-label">Sort</span>
+        <div class="sqb-row">
+          <select class="sqb-select" value={state.order} onChange={(e) => setField('order', e.currentTarget.value)}>
+            <option value="">default</option>
+            {ORDERS.map((order) => (
+              <option key={order} value={order}>
+                {order}
+              </option>
+            ))}
+          </select>
+          <select class="sqb-select" value={state.direction} onChange={(e) => setField('direction', e.currentTarget.value as QueryState['direction'])}>
+            <option value="auto">auto</option>
+            <option value="asc">asc</option>
+            <option value="desc">desc</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TextField({ field, label, placeholder, ...form }: TextFieldProps) {
+  const [text, edit] = useTextFieldDraft(field, form);
+  return (
+    <label class="sqb-field">
+      <span class="sqb-label">{label}</span>
+      <input class="sqb-input" value={text} placeholder={placeholder} onInput={(e) => edit(e.currentTarget.value)} />
+    </label>
+  );
+}
+
+function SuggestField({ field, label, placeholder, suggestions, descriptions, ...form }: TextFieldProps & { suggestions: readonly SuggestionGroup[]; descriptions?: ReadonlyMap<string, string> }) {
+  const [text, edit] = useTextFieldDraft(field, form);
+  return (
+    <div class="sqb-field">
+      <span class="sqb-label">{label}</span>
+      <SuggestCombobox value={text} placeholder={placeholder} suggestions={suggestions} descriptions={descriptions} onInput={edit} />
+    </div>
+  );
+}
+
+function PriceField({ state, onChange }: FormProps) {
+  const [price, setPrice] = useDraft({ priceCurrency: state.priceCurrency, priceMax: state.priceMax }, (draft) => queryTextFor('price', draft));
   const edit = (patch: Partial<typeof price>) => {
     const next = { ...price, ...patch };
     setPrice(next);
@@ -113,132 +199,44 @@ function PriceField({ state, onChange }: { state: QueryState; onChange: Update }
     <div class="sqb-field">
       <span class="sqb-label">Max price</span>
       <div class="sqb-row">
-        <select class="sqb-select" value={price.priceCurrency} onChange={(e) => edit({ priceCurrency: (e.target as HTMLSelectElement).value as QueryState['priceCurrency'] })}>
+        <select class="sqb-select" value={price.priceCurrency} onChange={(e) => edit({ priceCurrency: e.currentTarget.value as QueryState['priceCurrency'] })}>
           <option value="eur">EUR</option>
           <option value="usd">USD</option>
         </select>
-        <input class="sqb-input sqb-input-sm" value={price.priceMax} onInput={(e) => edit({ priceMax: (e.target as HTMLInputElement).value })} placeholder="1.50" />
+        <input class="sqb-input sqb-input-sm" value={price.priceMax} onInput={(e) => edit({ priceMax: e.currentTarget.value })} placeholder="1.50" />
       </div>
     </div>
   );
 }
 
+function useTextFieldDraft(field: TextFieldId, { state, onChange }: FormProps): [string, (text: string) => void] {
+  const [draft, setDraft] = useDraft(state[field], (text) => queryTextFor(field, { [field]: text }));
+  const edit = (text: string) => {
+    setDraft(text);
+    onChange((s) => ({ ...s, [field]: text }));
+  };
+  return [draft, edit];
+}
+
 /**
- * The form over Scryfall's query syntax. It holds no state of its own: every
- * field shows what the query in the box says and writes straight back into it,
- * and whatever the query asks that no field can show is pinned below the form.
+ * Keeps what the user typed (`draw `, a lone `>=`) until the query says something the draft wouldn't
+ * write; showing the query's own reading would eat spaces and operators under the caret.
  */
-export function QueryBuilder(props: QueryBuilderProps) {
-  const { state, sets } = props;
-  const set = <K extends keyof QueryState>(key: K, value: QueryState[K]) => props.onChange((s) => ({ ...s, [key]: value }));
-  const field = { state, onChange: props.onChange };
+function useDraft<T>(value: T, toQueryText: (value: T) => string): [T, (next: T) => void] {
+  const draft = useRef(value);
+  const [, rerender] = useState(0);
+  if (toQueryText(draft.current) !== toQueryText(value)) draft.current = value;
+  const setDraft = (next: T) => {
+    draft.current = next;
+    rerender((n) => n + 1);
+  };
+  return [draft.current, setDraft];
+}
 
-  return (
-    <div class="sqb-stack sqb-qb">
-      <div class="sqb-qb-cols">
-        {/* What's printed on the card, top to bottom. */}
-        <div class="sqb-qb-col">
-          <TextField {...field} field="name" label="Name" placeholder="Lightning Bolt" />
-          <div class="sqb-qb-pair sqb-qb-pair-mana">
-            <ColorSelect
-              value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
-              onChange={(next) => props.onChange((s) => ({ ...s, ...next }))}
-            />
-            <TextField {...field} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
-          </div>
-          <SuggestField {...field} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="legendary creature" />
-          <div class="sqb-field">
-            <span class="sqb-label">Rarity</span>
-            <div class="sqb-wrap">
-              {RARITIES.map((r) => (
-                <button key={r} type="button" class={`sqb-btn sqb-btn-sm sqb-rarity-btn ${state.rarity.includes(r) ? 'sqb-btn-active' : ''}`} onClick={() => set('rarity', toggle(state.rarity, r))}>
-                  <span class={`sqb-rarity-dot sqb-rarity-${r}`} aria-hidden="true" />
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <SetAutocomplete
-            sets={sets.sets}
-            status={sets.status}
-            {...(sets.error ? { error: sets.error } : {})}
-            selected={state.sets}
-            onChange={(codes) => set('sets', codes)}
-            onRetry={sets.reload}
-          />
-          <TextField {...field} field="text" label="Rules text (o:)" placeholder='draw "a card"' />
-          <div class="sqb-qb-pair">
-            <TextField {...field} field="power" label="Power (pow)" placeholder="e.g. 3, >=4, >tou" />
-            <TextField {...field} field="toughness" label="Toughness (tou)" placeholder="e.g. 3, <=2, >pow" />
-          </div>
-        </div>
+function queryTextFor(field: FieldId, patch: Partial<QueryState>): string {
+  return FIELD_TERMS[field]({ ...EMPTY_QUERY, ...patch }).join(' ');
+}
 
-        {/* Everything the card itself doesn't show. */}
-        <div class="sqb-qb-col sqb-qb-col-aside">
-          <PriceField {...field} />
-          <TextField {...field} field="year" label="Year" placeholder="e.g. 2020, >=2020" />
-          <label class="sqb-field">
-            <span class="sqb-label">Format (f:)</span>
-            <select class="sqb-select" value={state.format} onChange={(e) => set('format', (e.target as HTMLSelectElement).value)}>
-              <option value="">any</option>
-              {FORMATS.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </label>
-          <SuggestField {...field} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="removal" />
-          <TextField {...field} field="artist" label="Artist (a:)" placeholder="Seb McKinnon" />
-          <div class="sqb-field">
-            <span class="sqb-label">Sort</span>
-            <div class="sqb-row">
-              <select class="sqb-select" value={state.order} onChange={(e) => set('order', (e.target as HTMLSelectElement).value)}>
-                <option value="">default</option>
-                {ORDERS.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-              <select class="sqb-select" value={state.direction} onChange={(e) => set('direction', (e.target as HTMLSelectElement).value as QueryState['direction'])}>
-                <option value="auto">auto</option>
-                <option value="asc">asc</option>
-                <option value="desc">desc</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sqb-field sqb-qb-flags">
-        <span class="sqb-label">Flags (is:)</span>
-        <div class="sqb-wrap">
-          {FLAGS.map((f) => (
-            <button key={f} type="button" class={`sqb-btn sqb-btn-sm sqb-flag ${state.flags.includes(f) ? 'sqb-btn-active' : ''}`} onClick={() => set('flags', toggle(state.flags, f))}>
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ConditionPins extras={props.extras} typing={props.typing} sets={sets.sets} onRemove={props.onRemove} />
-
-      <div class="sqb-row sqb-qb-actions">
-        <button type="button" class="sqb-btn sqb-btn-ghost" disabled={!props.query.trim()} onClick={props.onClear}>
-          Clear
-        </button>
-        <button
-          type="button"
-          class={`sqb-btn sqb-btn-primary${props.searching ? ' sqb-btn-busy' : ''}`}
-          disabled={!props.query.trim()}
-          aria-busy={props.searching}
-          onClick={props.searching ? undefined : props.onSearch}
-        >
-          {props.searching && <span class="sqb-spinner" aria-hidden="true" />}
-          {props.searching ? 'Searching…' : 'Search'}
-        </button>
-      </div>
-    </div>
-  );
+function fieldSetter(onChange: FormUpdate) {
+  return <K extends keyof QueryState>(key: K, value: QueryState[K]) => onChange((s) => ({ ...s, [key]: value }));
 }
