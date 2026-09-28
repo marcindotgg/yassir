@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findSet, normalize, parseSets, searchSets, setMeta, type SetSummary } from '../../src/lib/sets';
+import { findSet, normalize, parseSets, type SetSummary, searchSets, setMeta } from '../../src/lib/sets';
 
 const set = (over: Partial<SetSummary>): SetSummary => ({
   code: 'xxx',
@@ -13,20 +13,63 @@ const set = (over: Partial<SetSummary>): SetSummary => ({
 });
 
 const SETS: SetSummary[] = [
-  set({ code: 'mh3', name: 'Modern Horizons 3', releasedAt: '2024-06-14', setType: 'draft_innovation', cardCount: 303 }),
-  set({ code: 'mh2', name: 'Modern Horizons 2', releasedAt: '2021-06-18', setType: 'draft_innovation', cardCount: 303 }),
-  set({ code: 'tmh3', name: 'Modern Horizons 3 Tokens', releasedAt: '2024-06-14', setType: 'token', cardCount: 30, parent: 'mh3' }),
+  set({
+    code: 'mh3',
+    name: 'Modern Horizons 3',
+    releasedAt: '2024-06-14',
+    setType: 'draft_innovation',
+    cardCount: 303,
+  }),
+  set({
+    code: 'mh2',
+    name: 'Modern Horizons 2',
+    releasedAt: '2021-06-18',
+    setType: 'draft_innovation',
+    cardCount: 303,
+  }),
+  set({
+    code: 'tmh3',
+    name: 'Modern Horizons 3 Tokens',
+    releasedAt: '2024-06-14',
+    setType: 'token',
+    cardCount: 30,
+    parent: 'mh3',
+  }),
   set({ code: 'ltr', name: 'The Lord of the Rings: Tales of Middle-earth', releasedAt: '2023-06-23', cardCount: 281 }),
-  set({ code: 'ymid', name: 'Alchemy: Innistrad', releasedAt: '2021-12-09', setType: 'alchemy', cardCount: 63, digital: true }),
+  set({
+    code: 'ymid',
+    name: 'Alchemy: Innistrad',
+    releasedAt: '2021-12-09',
+    setType: 'alchemy',
+    cardCount: 63,
+    digital: true,
+  }),
   set({ code: 'hml', name: 'Homelands', releasedAt: '1995-10-01', cardCount: 140 }),
-  set({ code: 'h2r', name: 'Modern Horizons 2 Timeshifts', releasedAt: '2024-06-14', setType: 'draft_innovation', cardCount: 16, parent: 'mh3' }),
+  set({
+    code: 'h2r',
+    name: 'Modern Horizons 2 Timeshifts',
+    releasedAt: '2024-06-14',
+    setType: 'draft_innovation',
+    cardCount: 16,
+    parent: 'mh3',
+  }),
 ];
 
 describe('set list parsing', () => {
   it('keeps the fields the UI needs and skips broken entries', () => {
     const parsed = parseSets({
       data: [
-        { object: 'set', code: 'MH3', name: 'Modern Horizons 3', released_at: '2024-06-14', set_type: 'draft_innovation', card_count: 303, digital: false, icon_svg_uri: 'https://svgs.scryfall.io/sets/mh3.svg', parent_set_code: null },
+        {
+          object: 'set',
+          code: 'MH3',
+          name: 'Modern Horizons 3',
+          released_at: '2024-06-14',
+          set_type: 'draft_innovation',
+          card_count: 303,
+          digital: false,
+          icon_svg_uri: 'https://svgs.scryfall.io/sets/mh3.svg',
+          parent_set_code: null,
+        },
         { object: 'set', code: 'tmh3', name: 'Tokens', parent_set_code: 'MH3' },
         { object: 'set', name: 'no code' },
         null,

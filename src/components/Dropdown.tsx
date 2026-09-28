@@ -14,7 +14,15 @@ interface DropdownListProps {
   children: ComponentChildren;
 }
 
-export function DropdownList({ id, anchor, preferredHeight, class: className = '', listRef, multiselectable, children }: DropdownListProps) {
+export function DropdownList({
+  id,
+  anchor,
+  preferredHeight,
+  class: className = '',
+  listRef,
+  multiselectable,
+  children,
+}: DropdownListProps) {
   const placement = useDropdownPlacement(anchor, preferredHeight);
   return (
     <ul

@@ -1,7 +1,17 @@
 import { useRef, useState } from 'preact/hooks';
 import { capitalize } from '../lib/query-dictionary';
 import type { Condition } from '../lib/query-sync';
-import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, toggleItem, type FieldId, type QueryState } from '../lib/scryfall-syntax';
+import {
+  EMPTY_QUERY,
+  FIELD_TERMS,
+  type FieldId,
+  FLAGS,
+  FORMATS,
+  ORDERS,
+  type QueryState,
+  RARITIES,
+  toggleItem,
+} from '../lib/scryfall-syntax';
 import type { SuggestionGroup } from '../lib/suggestions';
 import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../lib/tag-suggestions';
 import { TYPE_GROUPS } from '../lib/type-suggestions';
@@ -45,7 +55,12 @@ const ARTIST_PLACEHOLDER = POPULAR_ARTISTS[Math.floor(Math.random() * POPULAR_AR
 const TYPES = TYPE_GROUPS.flatMap((group) => group.items);
 const TYPE_PLACEHOLDER = TYPES[Math.floor(Math.random() * TYPES.length)] ?? 'Creature';
 
-const ORDER_LABELS: Partial<Record<(typeof ORDERS)[number], string>> = { usd: 'USD', eur: 'EUR', cmc: 'CMC', edhrec: 'EDHREC' };
+const ORDER_LABELS: Partial<Record<(typeof ORDERS)[number], string>> = {
+  usd: 'USD',
+  eur: 'EUR',
+  cmc: 'CMC',
+  edhrec: 'EDHREC',
+};
 
 type TextFieldId = 'name' | 'rulesText' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
 
@@ -55,7 +70,18 @@ interface TextFieldProps extends FormProps {
   placeholder: string;
 }
 
-export function QueryBuilder({ query, state, onChange, otherConditions, typing, searching, setList, onRemove, onClear, onSearch }: QueryBuilderProps) {
+export function QueryBuilder({
+  query,
+  state,
+  onChange,
+  otherConditions,
+  typing,
+  searching,
+  setList,
+  onRemove,
+  onClear,
+  onSearch,
+}: QueryBuilderProps) {
   const setField = fieldSetter(onChange);
   const isEmpty = !query.trim();
 
@@ -94,7 +120,12 @@ export function QueryBuilder({ query, state, onChange, otherConditions, typing, 
         <button type="button" class="sqb-btn sqb-btn-ghost" disabled={isEmpty} onClick={onClear}>
           Clear
         </button>
-        <button type="submit" class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`} disabled={isEmpty} aria-busy={searching}>
+        <button
+          type="submit"
+          class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`}
+          disabled={isEmpty}
+          aria-busy={searching}
+        >
           {searching && <span class="sqb-spinner" aria-hidden="true" />}
           {searching ? 'Searching…' : 'Search'}
         </button>
@@ -117,7 +148,13 @@ function CardFields({ state, onChange, setList }: FormProps & { setList: SetList
         />
         <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
       </div>
-      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder={`e.g. ${TYPE_PLACEHOLDER}`} />
+      <SuggestField
+        {...form}
+        field="type"
+        suggestions={TYPE_GROUPS}
+        label="Type (t:)"
+        placeholder={`e.g. ${TYPE_PLACEHOLDER}`}
+      />
       <div class="sqb-field">
         <span class="sqb-label">Rarity</span>
         <div class="sqb-wrap">
@@ -163,12 +200,23 @@ function OtherFields({ state, onChange }: FormProps) {
           ))}
         </select>
       </label>
-      <SuggestField {...form} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="Removal" />
+      <SuggestField
+        {...form}
+        field="otag"
+        suggestions={TAG_GROUPS}
+        descriptions={TAG_DESCRIPTIONS}
+        label="Oracle tag (otag:)"
+        placeholder="Removal"
+      />
       <TextField {...form} field="artist" label="Artist (a:)" placeholder={ARTIST_PLACEHOLDER} />
       <div class="sqb-field">
         <span class="sqb-label">Sort</span>
         <div class="sqb-input-group">
-          <select class="sqb-select sqb-grow" value={state.order} onChange={(e) => setField('order', e.currentTarget.value)}>
+          <select
+            class="sqb-select sqb-grow"
+            value={state.order}
+            onChange={(e) => setField('order', e.currentTarget.value)}
+          >
             <option value="">Default</option>
             {ORDERS.map((order) => (
               <option key={order} value={order}>
@@ -176,7 +224,11 @@ function OtherFields({ state, onChange }: FormProps) {
               </option>
             ))}
           </select>
-          <select class="sqb-select" value={state.direction} onChange={(e) => setField('direction', e.currentTarget.value as QueryState['direction'])}>
+          <select
+            class="sqb-select"
+            value={state.direction}
+            onChange={(e) => setField('direction', e.currentTarget.value as QueryState['direction'])}
+          >
             <option value="auto">Auto</option>
             <option value="asc">Asc</option>
             <option value="desc">Desc</option>
@@ -197,18 +249,33 @@ function TextField({ field, label, placeholder, ...form }: TextFieldProps) {
   );
 }
 
-function SuggestField({ field, label, placeholder, suggestions, descriptions, ...form }: TextFieldProps & { suggestions: readonly SuggestionGroup[]; descriptions?: ReadonlyMap<string, string> }) {
+function SuggestField({
+  field,
+  label,
+  placeholder,
+  suggestions,
+  descriptions,
+  ...form
+}: TextFieldProps & { suggestions: readonly SuggestionGroup[]; descriptions?: ReadonlyMap<string, string> }) {
   const [text, edit] = useTextFieldDraft(field, form);
   return (
     <div class="sqb-field">
       <span class="sqb-label">{label}</span>
-      <SuggestCombobox value={text} placeholder={placeholder} suggestions={suggestions} descriptions={descriptions} onInput={edit} />
+      <SuggestCombobox
+        value={text}
+        placeholder={placeholder}
+        suggestions={suggestions}
+        descriptions={descriptions}
+        onInput={edit}
+      />
     </div>
   );
 }
 
 function PriceField({ state, onChange }: FormProps) {
-  const [price, setPrice] = useDraft({ priceCurrency: state.priceCurrency, priceMax: state.priceMax }, (draft) => queryTextFor('price', draft));
+  const [price, setPrice] = useDraft({ priceCurrency: state.priceCurrency, priceMax: state.priceMax }, (draft) =>
+    queryTextFor('price', draft),
+  );
   const edit = (patch: Partial<typeof price>) => {
     const next = { ...price, ...patch };
     setPrice(next);
@@ -218,11 +285,20 @@ function PriceField({ state, onChange }: FormProps) {
     <div class="sqb-field">
       <span class="sqb-label">Max price</span>
       <div class="sqb-input-group">
-        <select class="sqb-select" value={price.priceCurrency} onChange={(e) => edit({ priceCurrency: e.currentTarget.value as QueryState['priceCurrency'] })}>
+        <select
+          class="sqb-select"
+          value={price.priceCurrency}
+          onChange={(e) => edit({ priceCurrency: e.currentTarget.value as QueryState['priceCurrency'] })}
+        >
           <option value="eur">EUR</option>
           <option value="usd">USD</option>
         </select>
-        <input class="sqb-input sqb-grow" value={price.priceMax} onInput={(e) => edit({ priceMax: e.currentTarget.value })} placeholder="1.50" />
+        <input
+          class="sqb-input sqb-grow"
+          value={price.priceMax}
+          onInput={(e) => edit({ priceMax: e.currentTarget.value })}
+          placeholder="1.50"
+        />
       </div>
     </div>
   );

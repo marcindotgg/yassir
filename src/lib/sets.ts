@@ -55,7 +55,11 @@ export function parseSets(payload: unknown): SetSummary[] {
 }
 
 export function normalize(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 export function searchSets(sets: readonly SetSummary[], query: string, limit = 12): SetSummary[] {
@@ -64,7 +68,13 @@ export function searchSets(sets: readonly SetSummary[], query: string, limit = 1
     const tier = normalized ? matchTier(set, normalized) : 0;
     return tier === null ? [] : [{ set, tier }];
   });
-  matches.sort((a, b) => a.tier - b.tier || rankPenalty(a.set) - rankPenalty(b.set) || newestFirst(a.set, b.set) || a.set.name.localeCompare(b.set.name));
+  matches.sort(
+    (a, b) =>
+      a.tier - b.tier ||
+      rankPenalty(a.set) - rankPenalty(b.set) ||
+      newestFirst(a.set, b.set) ||
+      a.set.name.localeCompare(b.set.name),
+  );
   return matches.slice(0, limit).map((match) => match.set);
 }
 
@@ -94,7 +104,12 @@ function matchTier(set: SetSummary, query: string): number | null {
 }
 
 function rankPenalty(set: SetSummary): number {
-  return (RANK_PENALTY_BY_TYPE[set.setType] ?? 0) + (set.parent ? 1 : 0) + (set.digital ? 1 : 0) + (set.cardCount === 0 ? 1 : 0);
+  return (
+    (RANK_PENALTY_BY_TYPE[set.setType] ?? 0) +
+    (set.parent ? 1 : 0) +
+    (set.digital ? 1 : 0) +
+    (set.cardCount === 0 ? 1 : 0)
+  );
 }
 
 function newestFirst(a: SetSummary, b: SetSummary): number {

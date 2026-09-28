@@ -39,10 +39,17 @@ export function ConditionPins({ conditions, typing, sets, onRemove }: ConditionP
                 // Keyed by position, so a condition edited in place updates its pin instead of popping in a new one.
                 key={i}
                 class={`sqb-chip sqb-pin ${known ? '' : 'sqb-pin-unknown'}`}
-                title={known ? condition.text : `${condition.text} — Scryfall doesn't know this keyword and will ignore it`}
+                title={
+                  known ? condition.text : `${condition.text} — Scryfall doesn't know this keyword and will ignore it`
+                }
               >
                 <span class="sqb-pin-text">{text}</span>
-                <button type="button" class="sqb-chip-remove" aria-label={`Remove ${text}`} onClick={() => onRemove(condition)}>
+                <button
+                  type="button"
+                  class="sqb-chip-remove"
+                  aria-label={`Remove ${text}`}
+                  onClick={() => onRemove(condition)}
+                >
                   ✕
                 </button>
               </span>

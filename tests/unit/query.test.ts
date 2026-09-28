@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { describeNode, type SetNameLookup } from '../../src/lib/query-dictionary';
-import { parseQuery, topLevel, type Term } from '../../src/lib/query-parse';
+import { parseQuery, type Term, topLevel } from '../../src/lib/query-parse';
 import { readQuery, removeCondition, writeQuery } from '../../src/lib/query-sync';
-import { buildQuery, EMPTY_QUERY, toggleColorOption, type QueryState } from '../../src/lib/scryfall-syntax';
+import { buildQuery, EMPTY_QUERY, type QueryState, toggleColorOption } from '../../src/lib/scryfall-syntax';
 
 const conditions = (q: string) => topLevel(parseQuery(q)).map((n) => q.slice(n.start, n.end));
 const otherConditions = (q: string) => readQuery(q).otherConditions.map((c) => c.text);
-const pins = (q: string, setName?: SetNameLookup) => readQuery(q).otherConditions.map((c) => describeNode(c.node, setName).text);
+const pins = (q: string, setName?: SetNameLookup) =>
+  readQuery(q).otherConditions.map((c) => describeNode(c.node, setName).text);
 const edit = (q: string, patch: Partial<QueryState>) => writeQuery(q, { ...readQuery(q).state, ...patch });
 
 describe('query parser', () => {
@@ -48,7 +49,8 @@ describe('query parser', () => {
 
 describe('reading the form out of the query', () => {
   it('fills every field it has a term for', () => {
-    const q = 'bolt t:instant o:draw o:"a card" (c<=ur -c:c) mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
+    const q =
+      'bolt t:instant o:draw o:"a card" (c<=ur -c:c) mv>=2 (r:rare or r:mythic) (s:mh3 or s:ltr) f:modern eur<=1.5 pow>=4 tou=2 a:"Seb McKinnon" otag:removal otag:mana-rock year>=2020 is:foil order:eur direction:desc';
     const { state, otherConditions: rest } = readQuery(q);
     expect(rest).toEqual([]);
     expect(state).toEqual({
@@ -92,7 +94,10 @@ describe('reading the form out of the query', () => {
   });
 
   it('understands aliases, short forms and color nicknames', () => {
-    expect(readQuery('type:elf oracle:flying cmc:3 rarity:m e:MH3 legal:pauper usd<=5 power>2 artist:avon function:removal').state).toMatchObject({
+    expect(
+      readQuery('type:elf oracle:flying cmc:3 rarity:m e:MH3 legal:pauper usd<=5 power>2 artist:avon function:removal')
+        .state,
+    ).toMatchObject({
       type: 'elf',
       rulesText: 'flying',
       manaValue: '3',
@@ -114,7 +119,11 @@ describe('reading the form out of the query', () => {
   });
 
   it('pins what no field can show', () => {
-    expect(otherConditions('-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland r>=rare o:/draw a/ !fire foo:bar')).toEqual([
+    expect(
+      otherConditions(
+        '-t:creature c>=r c<=ur -c:c (c=u or c=r) c:r c:izzet kw:flying f:penny is:fetchland r>=rare o:/draw a/ !fire foo:bar',
+      ),
+    ).toEqual([
       '-t:creature',
       'c>=r',
       'c<=ur',
@@ -189,14 +198,17 @@ describe('writing the form into the query', () => {
   it('keeps a picked color kind exclusive in the query too', () => {
     const q = 'c=r t:elf';
     const state = readQuery(q).state;
-    expect(writeQuery(q, { ...state, ...toggleColorOption(state, { kind: 'combo', value: 'izzet' }) })).toBe('c=izzet t:elf');
+    expect(writeQuery(q, { ...state, ...toggleColorOption(state, { kind: 'combo', value: 'izzet' }) })).toBe(
+      'c=izzet t:elf',
+    );
   });
 });
 
 describe('removing a pinned condition', () => {
   it('takes the condition and its separator out', () => {
     const q = 't:elf kw:flying and -is:reprint foo:bar';
-    const at = (text: string) => readQuery(q).conditions.find((c) => c.text === text) as { start: number; end: number; text: string };
+    const at = (text: string) =>
+      readQuery(q).conditions.find((c) => c.text === text) as { start: number; end: number; text: string };
     expect(removeCondition(q, at('kw:flying'))).toBe('t:elf and -is:reprint foo:bar');
     expect(removeCondition(q, at('foo:bar'))).toBe('t:elf kw:flying and -is:reprint');
     expect(removeCondition(q, at('t:elf'))).toBe('kw:flying and -is:reprint foo:bar');
@@ -231,7 +243,9 @@ describe('naming pinned conditions', () => {
   });
 
   it('reads alternatives on one keyword as one, and nests the rest', () => {
-    expect(pins('(t:goblin or t:elf) (is:fetchland or is:shockland) -(kw:flying or o:reach) (t:elf kw:haste or f:penny)')).toEqual([
+    expect(
+      pins('(t:goblin or t:elf) (is:fetchland or is:shockland) -(kw:flying or o:reach) (t:elf kw:haste or f:penny)'),
+    ).toEqual([
       'Type: goblin or elf',
       'Fetch land or Shock land',
       'not (Keyword: flying or Rules text: reach)',
@@ -241,7 +255,12 @@ describe('naming pinned conditions', () => {
 
   it('names sets from the set list, and exact or excluded names', () => {
     const setName = (code: string) => (code === 'mh3' ? 'Modern Horizons 3' : undefined);
-    expect(pins('-s:mh3 in:xyz !"Lightning Bolt" -bolt', setName)).toEqual(['not Set: Modern Horizons 3', 'Printed in: xyz', 'Exact name: “Lightning Bolt”', 'not Name: bolt']);
+    expect(pins('-s:mh3 in:xyz !"Lightning Bolt" -bolt', setName)).toEqual([
+      'not Set: Modern Horizons 3',
+      'Printed in: xyz',
+      'Exact name: “Lightning Bolt”',
+      'not Name: bolt',
+    ]);
   });
 
   it('flags keywords Scryfall does not know, and stray brackets', () => {

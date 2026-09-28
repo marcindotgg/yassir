@@ -104,14 +104,69 @@ export const COLOR_COMBO_GROUPS: readonly { label: string; combos: readonly Colo
 ];
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'mythic', 'special'] as const;
-export const FORMATS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper', 'brawl', 'alchemy', 'historic'] as const;
-export const FLAGS = ['foil', 'nonfoil', 'promo', 'reprint', 'firstprint', 'digital', 'fullart', 'showcase', 'extended', 'borderless', 'commander', 'reserved'] as const;
-export const ORDERS = ['name', 'set', 'released', 'rarity', 'color', 'usd', 'eur', 'cmc', 'power', 'toughness', 'edhrec', 'artist'] as const;
+export const FORMATS = [
+  'standard',
+  'pioneer',
+  'modern',
+  'legacy',
+  'vintage',
+  'commander',
+  'pauper',
+  'brawl',
+  'alchemy',
+  'historic',
+] as const;
+export const FLAGS = [
+  'foil',
+  'nonfoil',
+  'promo',
+  'reprint',
+  'firstprint',
+  'digital',
+  'fullart',
+  'showcase',
+  'extended',
+  'borderless',
+  'commander',
+  'reserved',
+] as const;
+export const ORDERS = [
+  'name',
+  'set',
+  'released',
+  'rarity',
+  'color',
+  'usd',
+  'eur',
+  'cmc',
+  'power',
+  'toughness',
+  'edhrec',
+  'artist',
+] as const;
 
 export const DECIMAL = /^\d+(\.\d+)?$/;
 const BARE_NAME = /^[^\s"():<>=!/-][^\s"():<>=!]*$/;
 
-export const FIELDS = ['name', 'rulesText', 'type', 'colors', 'manaValue', 'rarity', 'sets', 'format', 'price', 'power', 'toughness', 'artist', 'otag', 'year', 'flags', 'order', 'direction'] as const;
+export const FIELDS = [
+  'name',
+  'rulesText',
+  'type',
+  'colors',
+  'manaValue',
+  'rarity',
+  'sets',
+  'format',
+  'price',
+  'power',
+  'toughness',
+  'artist',
+  'otag',
+  'year',
+  'flags',
+  'order',
+  'direction',
+] as const;
 export type FieldId = (typeof FIELDS)[number];
 
 /** One term per condition, so the query can be edited term by term. */
@@ -141,7 +196,10 @@ export function buildQuery(state: QueryState): string {
 
 export type ColorSelection = Pick<QueryState, 'colors' | 'colorless' | 'colorCombos'>;
 
-export type ColorOption = { kind: 'color'; value: (typeof COLORS)[number] } | { kind: 'colorless' } | { kind: 'combo'; value: string };
+export type ColorOption =
+  | { kind: 'color'; value: (typeof COLORS)[number] }
+  | { kind: 'colorless' }
+  | { kind: 'combo'; value: string };
 
 export function toggleColorOption(selection: ColorSelection, option: ColorOption): ColorSelection {
   const none: ColorSelection = { colors: [], colorless: false, colorCombos: [] };
@@ -182,7 +240,9 @@ function colorTerms({ colors, colorless, colorCombos }: QueryState): string[] {
 }
 
 function singleColorTerms(colors: string[]): string[] {
-  const letters = COLORS.filter((color) => colors.includes(color)).join('').toLowerCase();
+  const letters = COLORS.filter((color) => colors.includes(color))
+    .join('')
+    .toLowerCase();
   if (!letters) return [];
   if (letters.length === 1) return [`c=${letters}`];
   return [`(c<=${letters} -c:c)`];

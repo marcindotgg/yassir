@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
-import { filterSuggestions, splitLastWord, type SuggestionGroup } from '../lib/suggestions';
+import { filterSuggestions, type SuggestionGroup, splitLastWord } from '../lib/suggestions';
 import { DropdownList } from './Dropdown';
 
 const LIST_HEIGHT = 260;

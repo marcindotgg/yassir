@@ -1,6 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { capitalize } from '../lib/query-dictionary';
-import { COLOR_COMBO_GROUPS, COLORS, toggleColorOption, type ColorOption, type ColorSelection } from '../lib/scryfall-syntax';
+import {
+  COLOR_COMBO_GROUPS,
+  COLORS,
+  type ColorOption,
+  type ColorSelection,
+  toggleColorOption,
+} from '../lib/scryfall-syntax';
 import { DropdownList } from './Dropdown';
 
 interface ColorSelectProps {
@@ -31,7 +37,8 @@ const GRADIENTS: Record<string, [light: string, dark: string]> = {
   G: ['#a5d69f', '#347a3a'],
 };
 const COLORLESS_GRADIENT: [light: string, dark: string] = ['#e6e3e0', '#9a9590'];
-const GLOSS = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25))';
+const GLOSS =
+  'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25))';
 
 const ITEMS: readonly ColorItem[] = [
   ...COLORS.map(
@@ -43,7 +50,13 @@ const ITEMS: readonly ColorItem[] = [
       searchText: `${COLOR_NAMES[color]} ${color} colors`.toLowerCase(),
     }),
   ),
-  { option: { kind: 'colorless' }, group: 'Colors', label: 'Colorless', letters: 'C', searchText: 'colorless c colors' },
+  {
+    option: { kind: 'colorless' },
+    group: 'Colors',
+    label: 'Colorless',
+    letters: 'C',
+    searchText: 'colorless c colors',
+  },
   ...COLOR_COMBO_GROUPS.flatMap((group) =>
     group.combos.map(
       (combo): ColorItem => ({
@@ -162,7 +175,14 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
         </div>
 
         {open && (
-          <DropdownList id={listId} anchor={boxRef} preferredHeight={LIST_HEIGHT} class="sqb-multiselect-list" listRef={listRef} multiselectable>
+          <DropdownList
+            id={listId}
+            anchor={boxRef}
+            preferredHeight={LIST_HEIGHT}
+            class="sqb-multiselect-list"
+            listRef={listRef}
+            multiselectable
+          >
             {groupRows(visible).map((group) => (
               <li key={group.label} class="sqb-multiselect-group" role="group" aria-label={group.label}>
                 <div class="sqb-multiselect-group-label">{group.label}</div>
@@ -204,7 +224,9 @@ function pieBackground(letters: string): string {
   const [only] = gradients;
   if (gradients.length === 1 && only) return `radial-gradient(circle at 50% 20%, ${only[0]}, ${only[1]})`;
   const step = 360 / gradients.length;
-  const slices = gradients.map(([light, dark], i) => `color-mix(in srgb, ${light}, ${dark}) ${i * step}deg ${(i + 1) * step}deg`);
+  const slices = gradients.map(
+    ([light, dark], i) => `color-mix(in srgb, ${light}, ${dark}) ${i * step}deg ${(i + 1) * step}deg`,
+  );
   return `${GLOSS}, conic-gradient(${slices.join(', ')})`;
 }
 

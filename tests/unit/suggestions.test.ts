@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../../src/lib/tag-suggestions';
 import { filterSuggestions } from '../../src/lib/suggestions';
+import { TAG_DESCRIPTIONS, TAG_GROUPS } from '../../src/lib/tag-suggestions';
 
 describe('oracle tag suggestions', () => {
   it('lists each tag once, as a slug otag: accepts', () => {

@@ -145,12 +145,32 @@ const FLAG_LABELS: Record<string, string> = {
   manland: 'Creature land',
 };
 
-const COLOR_WORDS: Record<string, string> = { c: 'colorless', colorless: 'colorless', m: 'multicolor', multicolor: 'multicolor' };
-const COLOR_NICKNAMES = new Set([...COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => combo.name)), 'silverquill', 'prismari', 'witherbloom', 'lorehold', 'quandrix']);
+const COLOR_WORDS: Record<string, string> = {
+  c: 'colorless',
+  colorless: 'colorless',
+  m: 'multicolor',
+  multicolor: 'multicolor',
+};
+const COLOR_NICKNAMES = new Set([
+  ...COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => combo.name)),
+  'silverquill',
+  'prismari',
+  'witherbloom',
+  'lorehold',
+  'quandrix',
+]);
 const COLOR_KEYS = new Set(['c', 'color', 'id', 'identity', 'ci', 'commander']);
 const SET_KEYS = new Set(['s', 'e', 'set', 'edition', 'in']);
 const PHRASE_KEYS = new Set(['is', 'not', 'has', 'new', 'include']);
-const OPERATOR_TEXT: Record<Op, string> = { ':': ': ', '=': ' = ', '!=': ' ≠ ', '<': ' < ', '<=': ' ≤ ', '>': ' > ', '>=': ' ≥ ' };
+const OPERATOR_TEXT: Record<Op, string> = {
+  ':': ': ',
+  '=': ' = ',
+  '!=': ' ≠ ',
+  '<': ' < ',
+  '<=': ' ≤ ',
+  '>': ' > ',
+  '>=': ' ≥ ',
+};
 
 export interface Description {
   text: string;
@@ -210,7 +230,12 @@ function describeList(list: List, setName?: SetNameLookup): Description {
 function sameKeyTerms(items: Expr[]): Term[] | null {
   const [first] = items;
   if (first?.kind !== 'term' || PHRASE_KEYS.has(first.key)) return null;
-  const isAlike = (item: Expr) => item.kind === 'term' && !item.negated && item.key === first.key && item.op === first.op && item.exact === first.exact;
+  const isAlike = (item: Expr) =>
+    item.kind === 'term' &&
+    !item.negated &&
+    item.key === first.key &&
+    item.op === first.op &&
+    item.exact === first.exact;
   return items.every(isAlike) ? (items as Term[]) : null;
 }
 

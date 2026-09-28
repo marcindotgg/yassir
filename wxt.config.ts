@@ -1,5 +1,5 @@
-import { defineConfig } from 'wxt';
 import preact from '@preact/preset-vite';
+import { defineConfig } from 'wxt';
 
 export default defineConfig({
   srcDir: '.',

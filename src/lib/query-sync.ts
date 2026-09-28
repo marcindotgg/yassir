@@ -1,4 +1,4 @@
-import { parseQuery, topLevel, type Expr, type Op, type Term } from './query-parse';
+import { type Expr, type Op, parseQuery, type Term, topLevel } from './query-parse';
 import {
   COLOR_COMBO_GROUPS,
   COLORS,
@@ -6,12 +6,12 @@ import {
   EMPTY_QUERY,
   FIELD_TERMS,
   FIELDS,
+  type FieldId,
   FLAGS,
   FORMATS,
   ORDERS,
-  RARITIES,
-  type FieldId,
   type QueryState,
+  RARITIES,
 } from './scryfall-syntax';
 
 export interface Condition {
@@ -33,7 +33,9 @@ type FieldReader = (node: Expr, state: QueryState) => Partial<QueryState> | null
 const EQUALITY: readonly Op[] = [':', '='];
 const COMPARISON: readonly Op[] = [':', '=', '!=', '<', '<=', '>', '>='];
 const COLOR_KEYS = ['c', 'color'];
-const COMBO_COLORS = new Map(COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => [combo.name, combo.colors] as const)));
+const COMBO_COLORS = new Map(
+  COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => [combo.name, combo.colors] as const)),
+);
 const RARITY_LETTERS: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic', s: 'special' };
 const MULTI_CONDITION_FIELDS: ReadonlySet<FieldId> = new Set(['name', 'rulesText', 'type', 'otag', 'flags']);
 
@@ -47,17 +49,23 @@ const FIELD_READERS: Record<FieldId, FieldReader> = {
   colors: readColors,
   manaValue: comparisonReader('manaValue', ['mv', 'cmc', 'manavalue']),
   rarity: (node) => {
-    const rarity = alternativeValues(node, ['r', 'rarity'], (value) => (isOneOf(RARITIES, value) ? value : (RARITY_LETTERS[value] ?? null)));
+    const rarity = alternativeValues(node, ['r', 'rarity'], (value) =>
+      isOneOf(RARITIES, value) ? value : (RARITY_LETTERS[value] ?? null),
+    );
     return rarity && { rarity };
   },
   sets: (node) => {
-    const sets = alternativeValues(node, ['s', 'e', 'set', 'edition'], (value) => (/^[a-z0-9]+$/.test(value) ? value : null));
+    const sets = alternativeValues(node, ['s', 'e', 'set', 'edition'], (value) =>
+      /^[a-z0-9]+$/.test(value) ? value : null,
+    );
     return sets && { sets };
   },
   format: choiceReader('format', ['f', 'format', 'legal'], FORMATS, EQUALITY),
   price: (node) => {
     const term = matchTerm(node, ['usd', 'eur'], ['<=']);
-    return term && DECIMAL.test(term.value) ? { priceMax: term.value, priceCurrency: term.key as QueryState['priceCurrency'] } : null;
+    return term && DECIMAL.test(term.value)
+      ? { priceMax: term.value, priceCurrency: term.key as QueryState['priceCurrency'] }
+      : null;
   },
   power: comparisonReader('power', ['pow', 'power']),
   toughness: comparisonReader('toughness', ['tou', 'toughness']),
@@ -77,7 +85,12 @@ const FIELD_READERS: Record<FieldId, FieldReader> = {
 };
 
 export function readQuery(query: string): QueryReading {
-  const conditions = topLevel(parseQuery(query)).map((node) => ({ node, start: node.start, end: node.end, text: query.slice(node.start, node.end) }));
+  const conditions = topLevel(parseQuery(query)).map((node) => ({
+    node,
+    start: node.start,
+    end: node.end,
+    text: query.slice(node.start, node.end),
+  }));
   const conditionsByField = new Map<FieldId, Condition[]>();
   const otherConditions: Condition[] = [];
   let state = EMPTY_QUERY;
@@ -123,7 +136,11 @@ export function removeCondition(query: string, condition: Pick<Condition, 'start
   return target ? rebuild(query, conditions, new Map([[target, []]])) : query;
 }
 
-function readCondition(node: Expr, state: QueryState, filled: Map<FieldId, Condition[]>): { field: FieldId; patch: Partial<QueryState> } | null {
+function readCondition(
+  node: Expr,
+  state: QueryState,
+  filled: Map<FieldId, Condition[]>,
+): { field: FieldId; patch: Partial<QueryState> } | null {
   for (const field of FIELDS) {
     if (filled.has(field) && !MULTI_CONDITION_FIELDS.has(field)) continue;
     const patch = FIELD_READERS[field](node, state);
@@ -133,7 +150,12 @@ function readCondition(node: Expr, state: QueryState, filled: Map<FieldId, Condi
 }
 
 /** Each kept condition keeps the separator typed before it, so removing one never leaves a dangling `and`. */
-function rebuild(query: string, conditions: Condition[], replacements: Map<Condition, string[]>, appended: readonly string[] = []): string {
+function rebuild(
+  query: string,
+  conditions: Condition[],
+  replacements: Map<Condition, string[]>,
+  appended: readonly string[] = [],
+): string {
   const parts: string[] = [];
   const append = (separator: string, text: string) => parts.push(parts.length > 0 ? separator + text : text);
 
@@ -147,7 +169,8 @@ function rebuild(query: string, conditions: Condition[], replacements: Map<Condi
 
   // A whole query of `a or b` would swallow whatever is ANDed on after it: `a or b c` is `a or (b c)`.
   const [only] = conditions;
-  if (conditions.length === 1 && only?.node.kind === 'or' && !replacements.has(only) && parts.length > 1) parts[0] = `(${parts[0]})`;
+  if (conditions.length === 1 && only?.node.kind === 'or' && !replacements.has(only) && parts.length > 1)
+    parts[0] = `(${parts[0]})`;
   return parts.join('');
 }
 
@@ -169,7 +192,11 @@ function alternatives(node: Expr): Expr[] | null {
   return node.kind === 'term' ? [node] : null;
 }
 
-function alternativeValues(node: Expr, keys: readonly string[], pick: (value: string) => string | null): string[] | null {
+function alternativeValues(
+  node: Expr,
+  keys: readonly string[],
+  pick: (value: string) => string | null,
+): string[] | null {
   const values = alternatives(node)?.map((alternative) => {
     const term = matchTerm(alternative, keys, EQUALITY);
     return term && pick(term.value.toLowerCase());
@@ -177,7 +204,11 @@ function alternativeValues(node: Expr, keys: readonly string[], pick: (value: st
   return values?.every((value): value is string => !!value) ? [...new Set(values)] : null;
 }
 
-function wordReader(field: 'rulesText' | 'type' | 'otag', keys: readonly string[], { allowRegex = false } = {}): FieldReader {
+function wordReader(
+  field: 'rulesText' | 'type' | 'otag',
+  keys: readonly string[],
+  { allowRegex = false } = {},
+): FieldReader {
   return (node, state) => {
     const term = matchTerm(node, keys, [':'], allowRegex);
     return term && { [field]: appendWord(state[field], fieldWord(term)) };
@@ -191,7 +222,12 @@ function comparisonReader(field: 'manaValue' | 'power' | 'toughness' | 'year', k
   };
 }
 
-function choiceReader(field: 'format' | 'order' | 'direction', keys: readonly string[], choices: readonly string[], ops: readonly Op[] = [':']): FieldReader {
+function choiceReader(
+  field: 'format' | 'order' | 'direction',
+  keys: readonly string[],
+  choices: readonly string[],
+  ops: readonly Op[] = [':'],
+): FieldReader {
   return (node) => {
     const value = matchTerm(node, keys, ops)?.value.toLowerCase();
     return value && choices.includes(value) ? { [field]: value } : null;
@@ -219,7 +255,11 @@ function atMostColors(node: Expr): string[] | null {
 
 function isNotColorless(node: Expr): boolean {
   if (node.kind !== 'term' || !node.negated || node.exact || node.regex) return false;
-  return COLOR_KEYS.includes(node.key) && (node.op === ':' || node.op === '=') && ['c', 'colorless'].includes(node.value.toLowerCase());
+  return (
+    COLOR_KEYS.includes(node.key) &&
+    (node.op === ':' || node.op === '=') &&
+    ['c', 'colorless'].includes(node.value.toLowerCase())
+  );
 }
 
 // `c:izzet` means "at least blue and red"; only `c=izzet` is exactly the combination.

@@ -1,8 +1,8 @@
-import { chromium } from 'playwright';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
-import os from 'node:os';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const EXT = process.env.EXT_DIR ?? path.join(ROOT, 'dist/chrome-mv3');
@@ -37,18 +37,47 @@ const step = async (name, fn) => {
 };
 
 const inPage = (fn, arg) => page.evaluate(fn, arg);
-const mirrorValue = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value);
+const mirrorValue = () =>
+  inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror').value);
 const waitQuery = (re) =>
-  page.waitForFunction((src) => new RegExp(src).test(document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror')?.value ?? ''), re, { timeout: 5000 });
+  page.waitForFunction(
+    (src) =>
+      new RegExp(src).test(
+        document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror')?.value ?? '',
+      ),
+    re,
+    { timeout: 5000 },
+  );
 const fieldValue = (label) =>
   inPage((l) => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    return [...root.querySelectorAll('.sqb-field')].find((f) => f.querySelector('.sqb-label')?.textContent.startsWith(l))?.querySelector('input')?.value ?? null;
+    return (
+      [...root.querySelectorAll('.sqb-field')]
+        .find((f) => f.querySelector('.sqb-label')?.textContent.startsWith(l))
+        ?.querySelector('input')?.value ?? null
+    );
   }, label);
-const fieldInput = (label) => page.locator('.sqb-field', { has: page.locator('.sqb-label', { hasText: label }) }).locator('input').first();
-const colorChips = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-box .sqb-chip')].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()));
-const pinTexts = () => inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin')].map((c) => c.querySelector('.sqb-pin-text').textContent));
-const pinSection = () => inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal')?.className ?? null);
+const fieldInput = (label) =>
+  page
+    .locator('.sqb-field', { has: page.locator('.sqb-label', { hasText: label }) })
+    .locator('input')
+    .first();
+const colorChips = () =>
+  inPage(() =>
+    [
+      ...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-box .sqb-chip'),
+    ].map((c) => c.textContent.replace(/[✕\s]+/g, ' ').trim()),
+  );
+const pinTexts = () =>
+  inPage(() =>
+    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin')].map(
+      (c) => c.querySelector('.sqb-pin-text').textContent,
+    ),
+  );
+const pinSection = () =>
+  inPage(
+    () => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal')?.className ?? null,
+  );
 
 await step('mounts on the homepage', async () => {
   await page.goto('https://scryfall.com/', { waitUntil: 'domcontentloaded' });
@@ -66,7 +95,11 @@ await step('focusing the search box opens the modal over it', async () => {
   await page.fill('input#q', 't:instant');
   await page.evaluate(() => document.querySelector('input#q').blur());
   await page.click('input#q');
-  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 5000 },
+  );
   const geo = await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
     const mirror = root.querySelector('.sqb-mirror');
@@ -92,7 +125,8 @@ await step('focusing the search box opens the modal over it', async () => {
   });
   await page.screenshot({ path: path.join(OUT, 'modal.png') });
   if (geo.dx > 1 || geo.dy > 1) throw new Error(`mirror starts off by ${geo.dx}px / ${geo.dy}px`);
-  if (geo.value !== 't:instant' || !geo.focused || !geo.font || !geo.hidden || !geo.widened) throw new Error(JSON.stringify(geo));
+  if (geo.value !== 't:instant' || !geo.focused || !geo.font || !geo.hidden || !geo.widened)
+    throw new Error(JSON.stringify(geo));
   return 'mirror starts on top of input#q, same text, focused; original hidden; widens open';
 });
 
@@ -117,7 +151,8 @@ const listOnTop = (sel) =>
     if (!list) return 'no list';
     const body = root.querySelector('.sqb-sheet-body').getBoundingClientRect();
     const box = list.getBoundingClientRect();
-    if (box.top < body.top - 1 || box.bottom > body.bottom + 1) return `list ${Math.round(box.top)}-${Math.round(box.bottom)} outside the body ${Math.round(body.top)}-${Math.round(body.bottom)}`;
+    if (box.top < body.top - 1 || box.bottom > body.bottom + 1)
+      return `list ${Math.round(box.top)}-${Math.round(box.bottom)} outside the body ${Math.round(body.top)}-${Math.round(body.bottom)}`;
     const bad = [...list.querySelectorAll('button')]
       .filter((row) => {
         const r = row.getBoundingClientRect();
@@ -143,9 +178,17 @@ await step('the set list loads from api.scryfall.com', async () => {
     { timeout: 30000 },
   );
   await typeSet('modern horizons');
-  await page.waitForFunction(() => (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-sets .sqb-option').length ?? 0) > 0, null, { timeout: 8000 });
+  await page.waitForFunction(
+    () =>
+      (document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelectorAll('.sqb-sets .sqb-option').length ??
+        0) > 0,
+    null,
+    { timeout: 8000 },
+  );
   const rows = await inPage(() =>
-    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-option')].slice(0, 3).map((b) => b.querySelector('.sqb-option-name').textContent),
+    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-option')]
+      .slice(0, 3)
+      .map((b) => b.querySelector('.sqb-option-name').textContent),
   );
   if (rows[0] !== 'Modern Horizons 3') throw new Error(`unexpected ranking: ${rows.join(' | ')}`);
   return rows.join(' | ');
@@ -162,12 +205,18 @@ async function typeSet(value) {
 }
 
 await step('a set typed into the query shows as a chip; a picked one joins it in place', async () => {
-  const chips = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-chip')].map((c) => c.textContent));
+  const chips = await inPage(() =>
+    [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-sets .sqb-chip')].map(
+      (c) => c.textContent,
+    ),
+  );
   if (!chips.some((c) => /ltr/i.test(c))) throw new Error(`set chips: ${chips}`);
   await page.screenshot({ path: path.join(OUT, 'set-dropdown.png') });
   const covered = await listOnTop('.sqb-sets .sqb-dropdown');
   if (covered) throw new Error(`set list: ${covered}`);
-  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-sets .sqb-option').click());
+  await inPage(() =>
+    document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-sets .sqb-option').click(),
+  );
   await waitQuery('^t:instant \\(s:ltr or s:mh3\\)$');
   const value = await page.inputValue('input#q');
   if (value !== (await mirrorValue())) throw new Error(`input#q holds ${value}`);
@@ -175,7 +224,12 @@ await step('a set typed into the query shows as a chip; a picked one joins it in
 });
 
 await step('removing a set chip takes it out of the query', async () => {
-  await inPage(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-sets .sqb-chip .sqb-chip-remove').click());
+  await inPage(() =>
+    document
+      .querySelector('scryfall-query-builder')
+      .shadowRoot.querySelector('.sqb-sets .sqb-chip .sqb-chip-remove')
+      .click(),
+  );
   await waitQuery('^t:instant s:mh3$');
   return mirrorValue();
 });
@@ -185,7 +239,11 @@ await step('a condition the form has no field for opens a section with a named p
   await page.locator('.sqb-mirror').click();
   await page.keyboard.press('End');
   await page.keyboard.type(' kw:flying -is:reprint');
-  await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin').length === 2, null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-pin').length === 2,
+    null,
+    { timeout: 5000 },
+  );
   const pins = await pinTexts();
   if (pins.join('|') !== 'Keyword: flying|not Reprint') throw new Error(`pins: ${pins}`);
   const section = await pinSection();
@@ -200,7 +258,11 @@ await step('a condition the form has no field for opens a section with a named p
   if (!focused) throw new Error('focus did not go back to the query');
   await page.locator('.sqb-pin', { hasText: 'not Reprint' }).locator('.sqb-chip-remove').click();
   await waitQuery('^t:instant s:mh3$');
-  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'), null, { timeout: 2000 });
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'),
+    null,
+    { timeout: 2000 },
+  );
   return `pins: ${pins.join(', ')}; both removed, section folded away`;
 });
 
@@ -208,7 +270,11 @@ await step('retyping the only condition updates its pin in place, once typing pa
   await page.locator('.sqb-mirror').click();
   await page.keyboard.press('End');
   await page.keyboard.type(' kw:flying');
-  await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin'), null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin'),
+    null,
+    { timeout: 5000 },
+  );
   // Tag the section and the pin: a re-mounted one wouldn't carry the tag.
   await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
@@ -219,15 +285,28 @@ await step('retyping the only condition updates its pin in place, once typing pa
   await page.keyboard.type('haste');
   const early = await pinTexts();
   if (early.join('|') !== 'Keyword: flying') throw new Error(`pins changed while still typing: ${early}`);
-  await page.waitForFunction(() => document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin-text')?.textContent === 'Keyword: haste', null, { timeout: 5000 });
+  await page.waitForFunction(
+    () =>
+      document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-pin-text')?.textContent ===
+      'Keyword: haste',
+    null,
+    { timeout: 5000 },
+  );
   const kept = await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
-    return { section: root.querySelector('.sqb-reveal')?.sqbProbe === true, pin: root.querySelector('.sqb-pin')?.sqbProbe === true };
+    return {
+      section: root.querySelector('.sqb-reveal')?.sqbProbe === true,
+      pin: root.querySelector('.sqb-pin')?.sqbProbe === true,
+    };
   });
   if (!kept.section || !kept.pin) throw new Error(`re-mounted: ${JSON.stringify(kept)}`);
   await page.locator('.sqb-pin').locator('.sqb-chip-remove').click();
   await waitQuery('^t:instant s:mh3$');
-  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'), null, { timeout: 2000 });
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-reveal'),
+    null,
+    { timeout: 2000 },
+  );
   return 'flying → haste in the same pin, section never folded';
 });
 
@@ -254,7 +333,9 @@ await step('oracle tag suggestions complete the word being typed', async () => {
   await page.keyboard.type('rock');
   await page.locator('.sqb-dropdown .sqb-option', { hasText: 'mana-rock' }).click();
   await waitQuery('^t:instant s:mh3 otag:mana-rock$');
-  const listOpen = await inPage(() => !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-dropdown'));
+  const listOpen = await inPage(
+    () => !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-dropdown'),
+  );
   if (listOpen) throw new Error('the list should close once a suggestion is picked');
   await fieldInput('Oracle tag').fill('');
   await waitQuery('^t:instant s:mh3$');
@@ -271,14 +352,20 @@ await step('the colors multiselect: groups exclude each other, Escape only close
   await waitQuery('\\(c=izzet or c=boros\\)');
   const covered = await listOnTop('.sqb-multiselect-list');
   if (covered) throw new Error(`colors list: ${covered}`);
-  const groups = await inPage(() => [...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-group-label')].map((g) => g.textContent));
+  const groups = await inPage(() =>
+    [
+      ...document.querySelector('scryfall-query-builder').shadowRoot.querySelectorAll('.sqb-multiselect-group-label'),
+    ].map((g) => g.textContent),
+  );
   if (groups.join('|') !== 'Colors|Guilds|Shards|Wedges|Four colors|Five colors') throw new Error(`groups: ${groups}`);
   await pick('Red');
   await waitQuery('(^| )c=r( |$)');
-  if ((await mirrorValue()).includes('izzet')) throw new Error(`a single color should clear the combinations: ${await mirrorValue()}`);
+  if ((await mirrorValue()).includes('izzet'))
+    throw new Error(`a single color should clear the combinations: ${await mirrorValue()}`);
   await pick('Jund');
   await waitQuery('c=jund');
-  if (/(^| )c=r\b/.test(await mirrorValue())) throw new Error(`a combination should clear the single colors: ${await mirrorValue()}`);
+  if (/(^| )c=r\b/.test(await mirrorValue()))
+    throw new Error(`a combination should clear the single colors: ${await mirrorValue()}`);
   await pick('Colorless');
   await waitQuery('c=c');
   const afterColorless = await colorChips();
@@ -308,7 +395,11 @@ await step('picking a color replaces colorless where it stood', async () => {
 
 await step('Escape closes it and gives focus back to the real box', async () => {
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'), null, { timeout: 2000 });
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 2000 },
+  );
   const state = await inPage(() => ({
     open: !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
     focused: document.activeElement === document.querySelector('input#q'),
@@ -320,7 +411,11 @@ await step('Escape closes it and gives focus back to the real box', async () => 
 
 await step('Enter in the modal runs the search', async () => {
   await page.click('input#q');
-  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 5000 },
+  );
   // Something for a pin, so the results page opens with one.
   await page.keyboard.press('End');
   await page.keyboard.type(' kw:haste');
@@ -334,7 +429,11 @@ await step('on /search the header box opens it, unfolding downwards', async () =
   await page.waitForSelector('scryfall-query-builder', { state: 'attached', timeout: 20000 });
   await inPage(() => document.querySelector('#header-search-field').blur());
   await page.click('#header-search-field');
-  await page.waitForFunction(() => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'), null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 5000 },
+  );
   const geo = await inPage(() => {
     const root = document.querySelector('scryfall-query-builder').shadowRoot;
     const mirror = root.querySelector('.sqb-mirror');
@@ -366,14 +465,20 @@ await step('on /search the header box opens it, unfolding downwards', async () =
 await step('after the page loads anew, the form reads the query it was left with', async () => {
   // Read straight away: a condition the query already has is pinned from the start, not after a pause.
   const [type, colors, pins, section] = await Promise.all([fieldValue('Type'), colorChips(), pinTexts(), pinSection()]);
-  if (type !== 'instant' || colors.join('|') !== 'Red' || pins.join('|') !== 'Keyword: haste') throw new Error(JSON.stringify({ type, colors, pins }));
-  if (section !== 'sqb-reveal') throw new Error(`there from the start, the section should come with the sheet: ${section}`);
+  if (type !== 'instant' || colors.join('|') !== 'Red' || pins.join('|') !== 'Keyword: haste')
+    throw new Error(JSON.stringify({ type, colors, pins }));
+  if (section !== 'sqb-reveal')
+    throw new Error(`there from the start, the section should come with the sheet: ${section}`);
   return `Type = ${type}, Colors = ${colors.join(', ')}, pinned: ${pins.join(', ')}`;
 });
 
 await step('Escape on /search hands focus back to the header box', async () => {
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'), null, { timeout: 2000 });
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 2000 },
+  );
   const focused = await inPage(() => document.activeElement === document.querySelector('#header-search-field'));
   if (!focused) throw new Error('header box not focused');
   return 'closed after the close animation, header box focused';
@@ -383,5 +488,7 @@ await ctx.close();
 fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 2));
 
 const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length} passed, ${failed.length} failed — screenshots in ${path.relative(ROOT, OUT)}/`);
+console.log(
+  `\n${results.length - failed.length} passed, ${failed.length} failed — screenshots in ${path.relative(ROOT, OUT)}/`,
+);
 process.exit(failed.length ? 1 : 0);

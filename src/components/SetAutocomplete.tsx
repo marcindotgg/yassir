@@ -48,7 +48,9 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
       if (suggestions.length === 0) return;
       event.preventDefault();
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((i) => (i < 0 && step < 0 ? suggestions.length - 1 : (i + step + suggestions.length) % suggestions.length));
+      setActive((i) =>
+        i < 0 && step < 0 ? suggestions.length - 1 : (i + step + suggestions.length) % suggestions.length,
+      );
     } else if (event.key === 'Enter') {
       const code = suggestions[active]?.code ?? text;
       if (!code.trim()) return;
@@ -78,7 +80,12 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
                 {set?.iconUri && <img class="sqb-set-icon" src={set.iconUri} alt="" loading="lazy" />}
                 {set?.name ?? code}
                 <span class="sqb-option-code">{code}</span>
-                <button type="button" class="sqb-chip-remove" aria-label={`Remove ${set?.name ?? code}`} onClick={() => remove(code)}>
+                <button
+                  type="button"
+                  class="sqb-chip-remove"
+                  aria-label={`Remove ${set?.name ?? code}`}
+                  onClick={() => remove(code)}
+                >
                   ✕
                 </button>
               </span>
@@ -109,7 +116,9 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
 
         {showList && (
           <DropdownList id={listId} anchor={anchorRef} preferredHeight={LIST_HEIGHT}>
-            {status === 'loading' && suggestions.length === 0 && <li class="sqb-dropdown-note">Loading the set list from Scryfall…</li>}
+            {status === 'loading' && suggestions.length === 0 && (
+              <li class="sqb-dropdown-note">Loading the set list from Scryfall…</li>
+            )}
 
             {status === 'error' && (
               <li class="sqb-dropdown-note">
@@ -122,8 +131,17 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
 
             {suggestions.map((set, i) => (
               <li key={set.code} role="option" aria-selected={i === active}>
-                <button type="button" class={`sqb-option ${i === active ? 'sqb-option-active' : ''}`} onMouseEnter={() => setActive(i)} onClick={() => add(set.code)}>
-                  {set.iconUri ? <img class="sqb-set-icon" src={set.iconUri} alt="" loading="lazy" /> : <span class="sqb-set-icon" />}
+                <button
+                  type="button"
+                  class={`sqb-option ${i === active ? 'sqb-option-active' : ''}`}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => add(set.code)}
+                >
+                  {set.iconUri ? (
+                    <img class="sqb-set-icon" src={set.iconUri} alt="" loading="lazy" />
+                  ) : (
+                    <span class="sqb-set-icon" />
+                  )}
                   <span class="sqb-option-name">{set.name}</span>
                   <span class="sqb-option-code">{set.code}</span>
                   <span class="sqb-option-meta">{setMeta(set)}</span>

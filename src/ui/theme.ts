@@ -41,7 +41,8 @@ function parseRgb(value: string): { rgb: Rgb; alpha: number } | null {
   const match = value.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/i);
   if (!match) return null;
   const rawAlpha = match[4];
-  const alpha = rawAlpha == null ? 1 : rawAlpha.endsWith('%') ? Number.parseFloat(rawAlpha) / 100 : Number.parseFloat(rawAlpha);
+  const alpha =
+    rawAlpha == null ? 1 : rawAlpha.endsWith('%') ? Number.parseFloat(rawAlpha) / 100 : Number.parseFloat(rawAlpha);
   return { rgb: [Number(match[1]), Number(match[2]), Number(match[3])], alpha: Number.isFinite(alpha) ? alpha : 1 };
 }
 

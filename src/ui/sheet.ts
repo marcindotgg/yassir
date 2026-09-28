@@ -12,14 +12,47 @@ const RESTING_TOP_RATIO = 0.12;
 const OFFSCREEN_DROP = 48;
 
 const MIRRORED_PROPERTIES = [
-  'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'textAlign', 'textIndent', 'textTransform',
-  'color', 'caretColor', 'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundSize', 'backgroundRepeat',
-  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-  'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
-  'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-  'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius',
-  'boxShadow', 'outlineWidth', 'outlineStyle', 'outlineColor', 'outlineOffset',
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'lineHeight',
+  'letterSpacing',
+  'textAlign',
+  'textIndent',
+  'textTransform',
+  'color',
+  'caretColor',
+  'backgroundColor',
+  'backgroundImage',
+  'backgroundPosition',
+  'backgroundSize',
+  'backgroundRepeat',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'borderTopWidth',
+  'borderRightWidth',
+  'borderBottomWidth',
+  'borderLeftWidth',
+  'borderTopStyle',
+  'borderRightStyle',
+  'borderBottomStyle',
+  'borderLeftStyle',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomRightRadius',
+  'borderBottomLeftRadius',
+  'boxShadow',
+  'outlineWidth',
+  'outlineStyle',
+  'outlineColor',
+  'outlineOffset',
 ] as const;
 
 export type MirrorStyle = Partial<Record<(typeof MIRRORED_PROPERTIES)[number], string>>;
@@ -46,9 +79,17 @@ export function measureLayout(input: HTMLInputElement): Layout {
   const box = input.getBoundingClientRect();
   const viewportWidth = document.documentElement.clientWidth;
   const viewportHeight = window.innerHeight;
-  const width = clamp(Math.min(box.width, viewportWidth), Math.max(SHEET_WIDTH, box.width + 2 * SHEET_PADDING), viewportWidth - 2 * VIEWPORT_MARGIN);
+  const width = clamp(
+    Math.min(box.width, viewportWidth),
+    Math.max(SHEET_WIDTH, box.width + 2 * SHEET_PADDING),
+    viewportWidth - 2 * VIEWPORT_MARGIN,
+  );
   const centeredLeft = box.left + box.width / 2 - width / 2;
-  const left = clamp(Math.min(VIEWPORT_MARGIN, (viewportWidth - width) / 2), centeredLeft, viewportWidth - VIEWPORT_MARGIN - width);
+  const left = clamp(
+    Math.min(VIEWPORT_MARGIN, (viewportWidth - width) / 2),
+    centeredLeft,
+    viewportWidth - VIEWPORT_MARGIN - width,
+  );
   const restingTop = clamp(VIEWPORT_MARGIN, box.top - SHEET_PADDING, Math.round(viewportHeight * RESTING_TOP_RATIO));
   const onScreen = box.bottom > 0 && box.top < viewportHeight;
   return {
@@ -82,7 +123,13 @@ export function snapshotAdornments(elements: Element[], input: HTMLInputElement)
   const box = input.getBoundingClientRect();
   return elements.map((element) => {
     const rect = element.getBoundingClientRect();
-    return { html: element.outerHTML, left: rect.left - box.left, top: rect.top - box.top, width: rect.width, height: rect.height };
+    return {
+      html: element.outerHTML,
+      left: rect.left - box.left,
+      top: rect.top - box.top,
+      width: rect.width,
+      height: rect.height,
+    };
   });
 }
 

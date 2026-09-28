@@ -8,7 +8,11 @@ export function splitLastWord(text: string): { head: string; word: string } {
   return { head: text.slice(0, cut), word: text.slice(cut) };
 }
 
-export function filterSuggestions(groups: readonly SuggestionGroup[], word: string, descriptions?: ReadonlyMap<string, string>): SuggestionGroup[] {
+export function filterSuggestions(
+  groups: readonly SuggestionGroup[],
+  word: string,
+  descriptions?: ReadonlyMap<string, string>,
+): SuggestionGroup[] {
   const query = word.toLowerCase();
   return groups
     .map((group) => ({

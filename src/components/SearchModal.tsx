@@ -1,8 +1,19 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { readQuery, removeCondition, writeQuery, type Condition } from '../lib/query-sync';
+import { type Condition, readQuery, removeCondition, writeQuery } from '../lib/query-sync';
 import type { QueryState } from '../lib/scryfall-syntax';
 import { afterAnimation } from '../ui/motion';
-import { CLOSE_MS, hideElements, lockPageScroll, measureLayout, mirrorStyle, sheetStyle, snapshotAdornments, type Adornment, type Layout, type MirrorStyle } from '../ui/sheet';
+import {
+  type Adornment,
+  CLOSE_MS,
+  hideElements,
+  type Layout,
+  lockPageScroll,
+  type MirrorStyle,
+  measureLayout,
+  mirrorStyle,
+  sheetStyle,
+  snapshotAdornments,
+} from '../ui/sheet';
 import { QueryBuilder } from './QueryBuilder';
 import { useSets } from './useSets';
 
@@ -102,7 +113,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       if (!isOpen.current && document.activeElement === input) open();
     };
     const followExternalInput = () => {
-      if (isOpen.current && input.value !== mirrorRef.current?.value) setQuery((current) => ({ ...current, value: input.value, typing: true }));
+      if (isOpen.current && input.value !== mirrorRef.current?.value)
+        setQuery((current) => ({ ...current, value: input.value, typing: true }));
     };
     const closeOnBackForwardRestore = (event: PageTransitionEvent) => {
       if (event.persisted && isOpen.current) teardown(false);
@@ -142,7 +154,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   if (!session) return null;
 
   // Starts from input.value, not from state: it is current even between renders.
-  const edit = (update: (state: QueryState) => QueryState) => updateQuery(writeQuery(input.value, update(readQuery(input.value).state)));
+  const edit = (update: (state: QueryState) => QueryState) =>
+    updateQuery(writeQuery(input.value, update(readQuery(input.value).state)));
   const keepFocusInSheet = () => mirrorRef.current?.focus();
   const remove = (condition: Condition) => {
     updateQuery(removeCondition(input.value, condition));
@@ -206,7 +219,12 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
                 key={i}
                 class="sqb-adornment"
                 aria-hidden="true"
-                style={{ left: `${adornment.left}px`, top: `${adornment.top}px`, width: `${adornment.width}px`, height: `${adornment.height}px` }}
+                style={{
+                  left: `${adornment.left}px`,
+                  top: `${adornment.top}px`,
+                  width: `${adornment.width}px`,
+                  height: `${adornment.height}px`,
+                }}
                 // Scryfall's own markup (the logo's inline SVG), copied from the page.
                 dangerouslySetInnerHTML={{ __html: adornment.html }}
               />

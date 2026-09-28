@@ -1,5 +1,5 @@
 :host {
-  --sqb-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --sqb-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --sqb-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --sqb-radius: 10px;
   --sqb-radius-sm: 6px;
@@ -26,7 +26,7 @@
 
 /* data-theme follows the page behind the sheet (src/ui/theme.ts); the OS preference is only the fallback. */
 @media (prefers-color-scheme: dark) {
-  :host(:not([data-theme='light'])) {
+  :host(:not([data-theme="light"])) {
     --sqb-bg: #111827;
     --sqb-bg-muted: #1f2937;
     --sqb-border: #374151;
@@ -43,7 +43,7 @@
   }
 }
 
-:host([data-theme='dark']) {
+:host([data-theme="dark"]) {
   --sqb-bg: #111827;
   --sqb-bg-muted: #1f2937;
   --sqb-border: #374151;

@@ -1,5 +1,5 @@
-import { createShadowRootUi, type ContentScriptContext } from '#imports';
 import { h, render } from 'preact';
+import { type ContentScriptContext, createShadowRootUi } from '#imports';
 import { SearchModal } from '../components/SearchModal';
 import { watchHostTheme } from '../ui/theme';
 import { searchBoxFor } from './selectors';
@@ -40,7 +40,11 @@ export async function mountSearchModal(ctx: ContentScriptContext): Promise<() =>
   return () => ui.remove();
 }
 
-function waitForElement<T extends Element>(ctx: ContentScriptContext, selector: string, timeoutMs = 10000): Promise<T | null> {
+function waitForElement<T extends Element>(
+  ctx: ContentScriptContext,
+  selector: string,
+  timeoutMs = 10000,
+): Promise<T | null> {
   const found = document.querySelector<T>(selector);
   if (found) return Promise.resolve(found);
 

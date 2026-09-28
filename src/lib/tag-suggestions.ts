@@ -14,7 +14,7 @@ const TAGS: Record<string, Record<string, string>> = {
     'removal-land': 'Removes a land',
     'removal-destroy': 'Removes by destroying',
     'removal-exile': 'Removes by exiling',
-    'removal-bounce': 'Removes by returning to its owner\'s hand',
+    'removal-bounce': "Removes by returning to its owner's hand",
     'removal-sacrifice': 'Makes a player sacrifice (edict)',
     'removal-toughness': 'Kills by lowering toughness (-X/-X)',
     'removal-tuck': 'Removes by putting into the library',
@@ -34,7 +34,7 @@ const TAGS: Record<string, Record<string, string>> = {
     'counterspell-ability': 'Counters an activated or triggered ability',
     discard: 'Makes a player discard cards',
     thoughtseize: 'Look at a hand and choose the card to discard',
-    'hand-disruption': 'Messes with an opponent\'s hand',
+    'hand-disruption': "Messes with an opponent's hand",
     'tapper-creature': 'Taps a creature',
     'lockdown-creature': 'Keeps a creature tapped or unable to act',
     fog: 'Prevents all combat damage this turn',
@@ -122,7 +122,7 @@ const TAGS: Record<string, Record<string, string>> = {
     'castable-from-graveyard': 'Can be cast from the graveyard',
     mill: 'Puts cards from a library into the graveyard',
     'mill-self': 'Mills your own library',
-    'mill-opponent': 'Mills an opponent\'s library',
+    'mill-opponent': "Mills an opponent's library",
     'graveyard-fuel': 'Uses cards in the graveyard as a resource',
     'cards-in-graveyard-matter': 'Better with more cards in the graveyard',
   },
@@ -138,7 +138,7 @@ const TAGS: Record<string, Record<string, string>> = {
   },
   'Creatures & combat': {
     evasion: 'Hard to block',
-    unblockable: 'Can\'t be blocked',
+    unblockable: "Can't be blocked",
     anthem: 'Pumps your whole team',
     'keyword-anthem': 'Gives your whole team a keyword',
     overrun: 'Big one-turn team pump, often with trample',
@@ -157,7 +157,7 @@ const TAGS: Record<string, Record<string, string>> = {
     'extra-combat-phase': 'Gives an extra combat phase',
     'force-attacker': 'Forces creatures to attack',
     lure: 'Forces creatures to block it',
-    'power-doubler': 'Doubles a creature\'s power',
+    'power-doubler': "Doubles a creature's power",
   },
   'Tokens, counters & copies': {
     'repeatable-creature-tokens': 'Makes creature tokens over and over',
@@ -210,6 +210,11 @@ const TAGS: Record<string, Record<string, string>> = {
   },
 };
 
-export const TAG_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(Object.values(TAGS).flatMap((tags) => Object.entries(tags)));
+export const TAG_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
+  Object.values(TAGS).flatMap((tags) => Object.entries(tags)),
+);
 
-export const TAG_GROUPS: readonly SuggestionGroup[] = Object.entries(TAGS).map(([label, tags]) => ({ label, items: Object.keys(tags) }));
+export const TAG_GROUPS: readonly SuggestionGroup[] = Object.entries(TAGS).map(([label, tags]) => ({
+  label,
+  items: Object.keys(tags),
+}));
