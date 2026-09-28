@@ -235,6 +235,6 @@ function describeValue(term: Term, setName?: SetNameLookup): string {
   return /\s/.test(value) ? `“${value}”` : value;
 }
 
-function capitalize(text: string): string {
+export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

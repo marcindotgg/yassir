@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { capitalize } from '../lib/query-dictionary';
 import { COLOR_COMBO_GROUPS, COLORS, toggleColorOption, type ColorOption, type ColorSelection } from '../lib/scryfall-syntax';
 import { DropdownList } from './Dropdown';
 
@@ -235,8 +236,4 @@ function scrollRowIntoView(list: HTMLElement, row: HTMLElement) {
   const bottom = row.offsetTop + row.offsetHeight;
   if (top < list.scrollTop) list.scrollTop = top;
   else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
-}
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }

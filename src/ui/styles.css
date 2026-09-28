@@ -167,10 +167,27 @@
   border-color: var(--sqb-primary);
   box-shadow: 0 0 0 3px var(--sqb-primary-soft);
 }
-.sqb-input-sm {
-  padding: 6px;
-  width: 52px;
-  text-align: center;
+/* Controls joined edge to edge; neighbours overlap by one border so the seam stays 1px. */
+.sqb-input-group {
+  display: flex;
+}
+.sqb-input-group > * + * {
+  margin-left: -1px;
+}
+.sqb-input-group > :not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.sqb-input-group > :not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.sqb-input-group > :focus {
+  position: relative;
+  z-index: 1;
+}
+.sqb-grow {
+  flex: 1 1 0;
 }
 .sqb-label {
   font-size: 11px;

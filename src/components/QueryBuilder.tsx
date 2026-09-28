@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import { capitalize } from '../lib/query-dictionary';
 import type { Condition } from '../lib/query-sync';
 import { EMPTY_QUERY, FIELD_TERMS, FLAGS, FORMATS, ORDERS, RARITIES, toggleItem, type FieldId, type QueryState } from '../lib/scryfall-syntax';
 import type { SuggestionGroup } from '../lib/suggestions';
@@ -27,6 +28,8 @@ interface QueryBuilderProps extends FormProps {
   onClear: () => void;
   onSearch: () => void;
 }
+
+const ORDER_LABELS: Partial<Record<(typeof ORDERS)[number], string>> = { usd: 'USD', eur: 'EUR', cmc: 'CMC', edhrec: 'EDHREC' };
 
 type TextFieldId = 'name' | 'rulesText' | 'type' | 'manaValue' | 'power' | 'toughness' | 'artist' | 'otag' | 'year';
 
@@ -98,7 +101,7 @@ function CardFields({ state, onChange, setList }: FormProps & { setList: SetList
         />
         <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
       </div>
-      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="legendary creature" />
+      <SuggestField {...form} field="type" suggestions={TYPE_GROUPS} label="Type (t:)" placeholder="Legendary creature" />
       <div class="sqb-field">
         <span class="sqb-label">Rarity</span>
         <div class="sqb-wrap">
@@ -110,13 +113,13 @@ function CardFields({ state, onChange, setList }: FormProps & { setList: SetList
               onClick={() => setField('rarity', toggleItem(state.rarity, rarity))}
             >
               <span class={`sqb-rarity-dot sqb-rarity-${rarity}`} aria-hidden="true" />
-              {rarity.charAt(0).toUpperCase() + rarity.slice(1)}
+              {capitalize(rarity)}
             </button>
           ))}
         </div>
       </div>
       <SetAutocomplete setList={setList} selected={state.sets} onChange={(codes) => setField('sets', codes)} />
-      <TextField {...form} field="rulesText" label="Rules text (o:)" placeholder='draw "a card"' />
+      <TextField {...form} field="rulesText" label="Rules text (o:)" placeholder='Draw "a card"' />
       <div class="sqb-pair">
         <TextField {...form} field="power" label="Power (pow)" placeholder="e.g. 3, >=4, >tou" />
         <TextField {...form} field="toughness" label="Toughness (tou)" placeholder="e.g. 3, <=2, >pow" />
@@ -136,31 +139,31 @@ function OtherFields({ state, onChange }: FormProps) {
       <label class="sqb-field">
         <span class="sqb-label">Format (f:)</span>
         <select class="sqb-select" value={state.format} onChange={(e) => setField('format', e.currentTarget.value)}>
-          <option value="">any</option>
+          <option value="">Any</option>
           {FORMATS.map((format) => (
             <option key={format} value={format}>
-              {format}
+              {capitalize(format)}
             </option>
           ))}
         </select>
       </label>
-      <SuggestField {...form} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="removal" />
+      <SuggestField {...form} field="otag" suggestions={TAG_GROUPS} descriptions={TAG_DESCRIPTIONS} label="Oracle tag (otag:)" placeholder="Removal" />
       <TextField {...form} field="artist" label="Artist (a:)" placeholder="Seb McKinnon" />
       <div class="sqb-field">
         <span class="sqb-label">Sort</span>
-        <div class="sqb-row">
-          <select class="sqb-select" value={state.order} onChange={(e) => setField('order', e.currentTarget.value)}>
-            <option value="">default</option>
+        <div class="sqb-input-group">
+          <select class="sqb-select sqb-grow" value={state.order} onChange={(e) => setField('order', e.currentTarget.value)}>
+            <option value="">Default</option>
             {ORDERS.map((order) => (
               <option key={order} value={order}>
-                {order}
+                {ORDER_LABELS[order] ?? capitalize(order)}
               </option>
             ))}
           </select>
           <select class="sqb-select" value={state.direction} onChange={(e) => setField('direction', e.currentTarget.value as QueryState['direction'])}>
-            <option value="auto">auto</option>
-            <option value="asc">asc</option>
-            <option value="desc">desc</option>
+            <option value="auto">Auto</option>
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
           </select>
         </div>
       </div>
@@ -198,12 +201,12 @@ function PriceField({ state, onChange }: FormProps) {
   return (
     <div class="sqb-field">
       <span class="sqb-label">Max price</span>
-      <div class="sqb-row">
+      <div class="sqb-input-group">
         <select class="sqb-select" value={price.priceCurrency} onChange={(e) => edit({ priceCurrency: e.currentTarget.value as QueryState['priceCurrency'] })}>
           <option value="eur">EUR</option>
           <option value="usd">USD</option>
         </select>
-        <input class="sqb-input sqb-input-sm" value={price.priceMax} onInput={(e) => edit({ priceMax: e.currentTarget.value })} placeholder="1.50" />
+        <input class="sqb-input sqb-grow" value={price.priceMax} onInput={(e) => edit({ priceMax: e.currentTarget.value })} placeholder="1.50" />
       </div>
     </div>
   );
