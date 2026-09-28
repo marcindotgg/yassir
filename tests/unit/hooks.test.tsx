@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { describe, expect, it } from 'vitest';
+import { useCursor } from '../../src/components/useCursor';
 import { useEvent } from '../../src/components/useEvent';
 
 function mount<P extends object>(Component: (props: P) => null, props: P) {
@@ -8,6 +9,30 @@ function mount<P extends object>(Component: (props: P) => null, props: P) {
   act(() => render(<Component {...props} />, root));
   return (next: P) => act(() => render(<Component {...next} />, root));
 }
+
+describe('useCursor', () => {
+  let cursor: [number, (index: number) => void];
+  const Probe = ({ word }: { word: string }) => {
+    cursor = useCursor(word, -1);
+    return null;
+  };
+
+  it('resets when the key changes', () => {
+    const rerender = mount(Probe, { word: 'a' });
+    act(() => cursor[1](3));
+    expect(cursor[0]).toBe(3);
+    rerender({ word: 'ab' });
+    expect(cursor[0]).toBe(-1);
+  });
+
+  it('does not bring the index back when the key returns', () => {
+    const rerender = mount(Probe, { word: 'a' });
+    act(() => cursor[1](3));
+    rerender({ word: 'ab' });
+    rerender({ word: 'a' });
+    expect(cursor[0]).toBe(-1);
+  });
+});
 
 describe('useEvent', () => {
   it('keeps its identity and calls the latest function', () => {

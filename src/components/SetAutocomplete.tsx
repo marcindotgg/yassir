@@ -1,6 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
+import { useId, useMemo, useRef, useState } from 'preact/hooks';
 import { findSet, searchSets, setMeta } from '../lib/sets';
 import { DropdownList } from './Dropdown';
+import { useCursor } from './useCursor';
 import type { SetList } from './useSets';
 
 interface SetAutocompleteProps {
@@ -15,7 +16,6 @@ const LIST_HEIGHT = 260;
 export function SetAutocomplete({ setList, selected, onChange }: SetAutocompleteProps) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const listId = useId();
@@ -29,7 +29,7 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
   }, [sets, selected, text]);
 
   // Nothing is highlighted over an empty field, so Enter there submits the form instead of adding a set.
-  useEffect(() => setActive(text.trim() ? 0 : -1), [text]);
+  const [active, setActive] = useCursor(text, text.trim() ? 0 : -1);
 
   const add = (code: string) => {
     const normalized = code.trim().toLowerCase();
@@ -48,8 +48,8 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
       if (suggestions.length === 0) return;
       event.preventDefault();
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((i) =>
-        i < 0 && step < 0 ? suggestions.length - 1 : (i + step + suggestions.length) % suggestions.length,
+      setActive(
+        active < 0 && step < 0 ? suggestions.length - 1 : (active + step + suggestions.length) % suggestions.length,
       );
     } else if (event.key === 'Enter') {
       const code = suggestions[active]?.code ?? text;

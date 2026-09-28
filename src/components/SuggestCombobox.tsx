@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { filterSuggestions, type SuggestionGroup, splitLastWord } from '../lib/suggestions';
 import { DropdownList } from './Dropdown';
+import { useCursor } from './useCursor';
 
 const LIST_HEIGHT = 260;
 
@@ -14,7 +15,6 @@ interface SuggestComboboxProps {
 
 export function SuggestCombobox({ value, placeholder, suggestions, descriptions, onInput }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
@@ -22,8 +22,9 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
   const { head, word } = splitLastWord(value);
   const groups = useMemo(() => filterSuggestions(suggestions, word, descriptions), [suggestions, word, descriptions]);
   const options = useMemo(() => groups.flatMap((group) => group.items), [groups]);
+  const [active, setActive] = useCursor(word, -1);
 
-  useEffect(() => setActive(-1), [word]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the option to scroll to is found by its aria-selected, which follows `active`
   useEffect(() => {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [active]);
@@ -38,7 +39,9 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
       event.preventDefault();
       setOpen(true);
       if (options.length === 0) return;
-      setActive((i) => (event.key === 'ArrowDown' ? (i + 1) % options.length : i <= 0 ? options.length - 1 : i - 1));
+      setActive(
+        event.key === 'ArrowDown' ? (active + 1) % options.length : active <= 0 ? options.length - 1 : active - 1,
+      );
     } else if (event.key === 'Enter') {
       const option = open ? options[active] : undefined;
       if (!option) return;

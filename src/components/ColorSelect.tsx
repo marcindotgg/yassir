@@ -8,6 +8,7 @@ import {
   toggleColorOption,
 } from '../lib/scryfall-syntax';
 import { DropdownList } from './Dropdown';
+import { useCursor } from './useCursor';
 
 interface ColorSelectProps {
   value: ColorSelection;
@@ -73,7 +74,6 @@ const ITEMS: readonly ColorItem[] = [
 export function ColorSelect({ value, onChange }: ColorSelectProps) {
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -84,8 +84,8 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
     return query ? ITEMS.filter((item) => item.searchText.includes(query)) : ITEMS;
   }, [filter]);
   const selected = ITEMS.filter((item) => isSelected(value, item));
+  const [active, setActive] = useCursor(filter, 0);
 
-  useEffect(() => setActive(0), [filter]);
   useEffect(() => {
     const list = listRef.current;
     const row = list?.querySelector<HTMLElement>(`[data-index="${active}"]`);
@@ -113,7 +113,7 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
       event.preventDefault();
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (!open) setOpen(true);
-      else if (visible.length > 0) setActive((i) => (i + step + visible.length) % visible.length);
+      else if (visible.length > 0) setActive((active + step + visible.length) % visible.length);
     } else if (event.key === 'Enter') {
       if (!open) return;
       event.preventDefault();
