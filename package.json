@@ -20,7 +20,8 @@
     "lint:fix": "biome check --write",
     "format": "biome format --write",
     "knip": "knip",
-    "check": "npm run typecheck && npm run lint && npm run knip && npm test"
+    "check": "npm run typecheck && npm run lint && npm run knip && npm test",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "preact": "^10.29.8"
