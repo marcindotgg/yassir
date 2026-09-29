@@ -134,40 +134,44 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
         {showList && (
           <DropdownList id={listId} anchor={anchorRef} preferredHeight={LIST_HEIGHT}>
             {status === 'loading' && suggestions.length === 0 && (
-              <li class="sqb-dropdown-note">Loading the set list from Scryfall…</li>
+              <div class="sqb-dropdown-note">Loading the set list from Scryfall…</div>
             )}
 
             {status === 'error' && (
-              <li class="sqb-dropdown-note">
+              <div class="sqb-dropdown-note">
                 Could not load the set list{setList.error ? `: ${setList.error}` : ''}.{' '}
                 <button type="button" class="sqb-btn sqb-btn-sm sqb-btn-ghost" onClick={setList.reload}>
                   Retry
                 </button>
-              </li>
+              </div>
             )}
 
             {suggestions.map((set, i) => (
-              <li key={set.code} role="option" aria-selected={i === active}>
-                <button
-                  type="button"
-                  class={`sqb-option ${i === active ? 'sqb-option-active' : ''}`}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => add(set.code)}
-                >
-                  {set.iconUri ? (
-                    <img class="sqb-set-icon" src={set.iconUri} alt="" loading="lazy" />
-                  ) : (
-                    <span class="sqb-set-icon" />
-                  )}
-                  <span class="sqb-option-name">{set.name}</span>
-                  <span class="sqb-option-code">{set.code}</span>
-                  <span class="sqb-option-meta">{setMeta(set)}</span>
-                </button>
-              </li>
+              <button
+                key={set.code}
+                type="button"
+                role="option"
+                tabIndex={-1}
+                aria-selected={i === active}
+                class={`sqb-option ${i === active ? 'sqb-option-active' : ''}`}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => add(set.code)}
+              >
+                {set.iconUri ? (
+                  <img class="sqb-set-icon" src={set.iconUri} alt="" loading="lazy" />
+                ) : (
+                  <span class="sqb-set-icon" />
+                )}
+                <span class="sqb-option-name">{set.name}</span>
+                <span class="sqb-option-code">{set.code}</span>
+                <span class="sqb-option-meta">{setMeta(set)}</span>
+              </button>
             ))}
 
             {status === 'ready' && suggestions.length === 0 && text.trim() !== '' && (
-              <li class="sqb-dropdown-note">No set matches “{text.trim()}”. Press Enter to use it as a code anyway.</li>
+              <div class="sqb-dropdown-note">
+                No set matches “{text.trim()}”. Press Enter to use it as a code anyway.
+              </div>
             )}
           </DropdownList>
         )}

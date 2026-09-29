@@ -9,7 +9,7 @@ interface DropdownListProps {
   anchor: RefObject<HTMLElement>;
   preferredHeight: number;
   class?: string;
-  listRef?: RefObject<HTMLUListElement>;
+  listRef?: RefObject<HTMLDivElement>;
   multiselectable?: boolean;
   children: ComponentChildren;
 }
@@ -25,7 +25,7 @@ export function DropdownList({
 }: DropdownListProps) {
   const placement = useDropdownPlacement(anchor, preferredHeight);
   return (
-    <ul
+    <div
       ref={listRef}
       id={id}
       role="listbox"
@@ -36,7 +36,7 @@ export function DropdownList({
       onMouseDown={(e) => e.preventDefault()}
     >
       {children}
-    </ul>
+    </div>
   );
 }
 

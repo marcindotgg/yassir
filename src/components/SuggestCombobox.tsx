@@ -16,7 +16,7 @@ interface SuggestComboboxProps {
 export function SuggestCombobox({ value, placeholder, suggestions, descriptions, onInput }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
   const { head, word } = splitLastWord(value);
@@ -74,39 +74,38 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
       {open && (
         <DropdownList id={listId} anchor={rootRef} preferredHeight={LIST_HEIGHT} listRef={listRef}>
           {groups.map((group) => (
-            <li key={group.label} role="presentation">
-              <div class="sqb-dropdown-group">{group.label}</div>
-              <ul class="sqb-dropdown-sublist" role="group" aria-label={group.label}>
-                {group.items.map((option) => {
-                  const index = ++optionIndex;
-                  const description = descriptions?.get(option);
-                  return (
-                    <li key={option} role="option" aria-selected={index === active}>
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        class={`sqb-option ${index === active ? 'sqb-option-active' : ''}`}
-                        onMouseEnter={() => setActive(index)}
-                        onClick={() => pick(option)}
-                      >
-                        <span class="sqb-option-text">
-                          <span class="sqb-option-name">
-                            <HighlightedMatch text={option} match={word} />
-                          </span>
-                          {description && (
-                            <span class="sqb-option-description">
-                              <HighlightedMatch text={description} match={word} />
-                            </span>
-                          )}
+            <fieldset key={group.label} class="sqb-dropdown-sublist">
+              <legend class="sqb-dropdown-group">{group.label}</legend>
+              {group.items.map((option) => {
+                const index = ++optionIndex;
+                const description = descriptions?.get(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={index === active}
+                    class={`sqb-option ${index === active ? 'sqb-option-active' : ''}`}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => pick(option)}
+                  >
+                    <span class="sqb-option-text">
+                      <span class="sqb-option-name">
+                        <HighlightedMatch text={option} match={word} />
+                      </span>
+                      {description && (
+                        <span class="sqb-option-description">
+                          <HighlightedMatch text={description} match={word} />
                         </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </li>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </fieldset>
           ))}
-          {groups.length === 0 && <li class="sqb-dropdown-note">No matching suggestions</li>}
+          {groups.length === 0 && <div class="sqb-dropdown-note">No matching suggestions</div>}
         </DropdownList>
       )}
     </div>

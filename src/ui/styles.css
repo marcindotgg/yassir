@@ -619,9 +619,10 @@
   color: var(--sqb-text-muted);
 }
 .sqb-dropdown-sublist {
+  min-width: 0;
   margin: 0;
   padding: 0;
-  list-style: none;
+  border: 0;
 }
 .sqb-dropdown-note {
   padding: 6px 7px;
@@ -732,10 +733,11 @@
 .sqb-multiselect-list {
   min-width: 240px;
 }
-.sqb-multiselect-group + .sqb-multiselect-group {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--sqb-border);
+.sqb-multiselect-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .sqb-multiselect-group-label {
   padding: 4px 7px 2px;
@@ -744,6 +746,15 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--sqb-text-muted);
+}
+/* On the legend, not the fieldset, whose top border would run through the legend. */
+.sqb-multiselect-group + .sqb-multiselect-group {
+  margin-top: 4px;
+}
+.sqb-multiselect-group + .sqb-multiselect-group > .sqb-multiselect-group-label {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--sqb-border);
 }
 .sqb-multiselect-list .sqb-option {
   border: 1px solid transparent;

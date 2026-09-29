@@ -76,7 +76,7 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
   const visible = useMemo(() => {
@@ -204,8 +204,8 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
             multiselectable
           >
             {groupRows(visible).map((group) => (
-              <li key={group.label} class="sqb-multiselect-group" role="group" aria-label={group.label}>
-                <div class="sqb-multiselect-group-label">{group.label}</div>
+              <fieldset key={group.label} class="sqb-multiselect-group">
+                <legend class="sqb-multiselect-group-label">{group.label}</legend>
                 {group.rows.map(({ item, index }) => {
                   const picked = isSelected(value, item);
                   return (
@@ -213,6 +213,7 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
                       key={item.label}
                       type="button"
                       role="option"
+                      tabIndex={-1}
                       aria-selected={picked}
                       data-index={index}
                       class={`sqb-option ${index === active ? 'sqb-option-active' : ''} ${picked ? 'sqb-option-selected' : ''}`}
@@ -225,9 +226,9 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
                     </button>
                   );
                 })}
-              </li>
+              </fieldset>
             ))}
-            {visible.length === 0 && <li class="sqb-dropdown-note">No color matches “{filter.trim()}”.</li>}
+            {visible.length === 0 && <div class="sqb-dropdown-note">No color matches “{filter.trim()}”.</div>}
           </DropdownList>
         )}
       </div>
