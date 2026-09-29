@@ -151,6 +151,7 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
     <div class="sqb-field">
       <span class="sqb-label">Colors</span>
       <div class="sqb-multiselect">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: mouse shortcut to the input, which keyboard users reach directly */}
         <div ref={boxRef} class="sqb-multiselect-box" onMouseDown={openFromBox}>
           {selected.map((item) => (
             <span key={item.label} class="sqb-chip">
