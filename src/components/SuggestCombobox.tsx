@@ -79,6 +79,7 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
               <ul class="sqb-dropdown-sublist" role="group" aria-label={group.label}>
                 {group.items.map((option) => {
                   const index = ++optionIndex;
+                  const description = descriptions?.get(option);
                   return (
                     <li key={option} role="option" aria-selected={index === active}>
                       <button
@@ -92,9 +93,9 @@ export function SuggestCombobox({ value, placeholder, suggestions, descriptions,
                           <span class="sqb-option-name">
                             <HighlightedMatch text={option} match={word} />
                           </span>
-                          {descriptions?.has(option) && (
+                          {description && (
                             <span class="sqb-option-description">
-                              <HighlightedMatch text={descriptions.get(option)!} match={word} />
+                              <HighlightedMatch text={description} match={word} />
                             </span>
                           )}
                         </span>
