@@ -42,23 +42,43 @@ export function SetAutocomplete({ setList, selected, onChange }: SetAutocomplete
 
   const remove = (code: string) => onChange(selected.filter((other) => other !== code));
 
+  const moveActive = (event: KeyboardEvent, step: 1 | -1) => {
+    if (!open) setOpen(true);
+    if (suggestions.length === 0) return;
+    event.preventDefault();
+    setActive(cycleIndex(active, step, suggestions.length));
+  };
+
+  const addActive = (event: KeyboardEvent) => {
+    const code = suggestions[active]?.code ?? text;
+    if (!code.trim()) return;
+    event.preventDefault();
+    add(code);
+  };
+
+  const closeList = (event: KeyboardEvent) => {
+    if (!open) return;
+    event.preventDefault();
+    setOpen(false);
+  };
+
+  const removeLast = () => {
+    const last = selected.at(-1);
+    if (text === '' && last) remove(last);
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (!open) setOpen(true);
-      if (suggestions.length === 0) return;
-      event.preventDefault();
-      setActive(cycleIndex(active, event.key === 'ArrowDown' ? 1 : -1, suggestions.length));
-    } else if (event.key === 'Enter') {
-      const code = suggestions[active]?.code ?? text;
-      if (!code.trim()) return;
-      event.preventDefault();
-      add(code);
-    } else if (event.key === 'Escape' && open) {
-      event.preventDefault();
-      setOpen(false);
-    } else if (event.key === 'Backspace' && text === '') {
-      const last = selected.at(-1);
-      if (last) remove(last);
+    switch (event.key) {
+      case 'ArrowDown':
+        return moveActive(event, 1);
+      case 'ArrowUp':
+        return moveActive(event, -1);
+      case 'Enter':
+        return addActive(event);
+      case 'Escape':
+        return closeList(event);
+      case 'Backspace':
+        return removeLast();
     }
   };
 

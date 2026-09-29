@@ -108,23 +108,42 @@ export function ColorSelect({ value, onChange }: ColorSelectProps) {
     setOpen(true);
   };
 
+  const moveActive = (event: KeyboardEvent, step: 1 | -1) => {
+    event.preventDefault();
+    if (!open) setOpen(true);
+    else if (visible.length > 0) setActive(cycleIndex(active, step, visible.length));
+  };
+
+  const toggleActive = (event: KeyboardEvent) => {
+    if (!open) return;
+    event.preventDefault();
+    const item = visible[active];
+    if (item) toggle(item);
+  };
+
+  const closeList = (event: KeyboardEvent) => {
+    if (!open) return;
+    event.preventDefault();
+    setOpen(false);
+  };
+
+  const removeLast = () => {
+    const last = selected.at(-1);
+    if (filter === '' && last) onChange(toggleColorOption(value, last.option));
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      if (!open) setOpen(true);
-      else if (visible.length > 0) setActive(cycleIndex(active, step, visible.length));
-    } else if (event.key === 'Enter') {
-      if (!open) return;
-      event.preventDefault();
-      const item = visible[active];
-      if (item) toggle(item);
-    } else if (event.key === 'Escape' && open) {
-      event.preventDefault();
-      setOpen(false);
-    } else if (event.key === 'Backspace' && filter === '') {
-      const last = selected.at(-1);
-      if (last) onChange(toggleColorOption(value, last.option));
+    switch (event.key) {
+      case 'ArrowDown':
+        return moveActive(event, 1);
+      case 'ArrowUp':
+        return moveActive(event, -1);
+      case 'Enter':
+        return toggleActive(event);
+      case 'Escape':
+        return closeList(event);
+      case 'Backspace':
+        return removeLast();
     }
   };
 
