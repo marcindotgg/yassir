@@ -135,11 +135,12 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     };
   }, [input, adornments]);
 
-  const sheetIsOpen = session !== null;
+  // Runs once per opened sheet: relayout keeps the selection array, only open() replaces it.
+  const selection = session?.selection;
   useLayoutEffect(() => {
-    if (!session) return;
+    if (!selection) return;
     mirrorRef.current?.focus();
-    mirrorRef.current?.setSelectionRange(...session.selection);
+    mirrorRef.current?.setSelectionRange(...selection);
     const unlockScroll = lockPageScroll();
     const relayout = () => {
       const layout = measureLayout(input);
@@ -150,7 +151,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       window.removeEventListener('resize', relayout);
       unlockScroll();
     };
-  }, [sheetIsOpen]);
+  }, [input, selection]);
 
   if (!session) return null;
 
