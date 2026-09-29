@@ -186,7 +186,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const { layout } = session;
   return (
     <div class={`sqb-modal${closing ? ' sqb-closing' : ''}`}>
-      <div class="sqb-backdrop" onClick={() => close(false)} />
+      <div class="sqb-backdrop" aria-hidden="true" onClick={() => close(false)} />
       <div
         class="sqb-sheet"
         role="dialog"
