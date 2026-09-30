@@ -22,7 +22,7 @@
     "format": "biome format --write",
     "knip": "knip",
     "check": "npm run typecheck && npm run lint && npm run knip && npm test",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "dependencies": {
     "preact": "^10.29.8"

@@ -34,7 +34,8 @@ The e2e test loads `dist/chrome-mv3` into Playwright's Chromium, so run `npm run
 ## Contributing
 
 - Keep `src/lib` free of DOM and browser APIs, and cover changes there with unit tests.
-- Run `npm run typecheck` and `npm test` before opening a pull request, and `npm run test:e2e` when you change the UI.
+- `npm install` points git at `.githooks`, so `npm run check` (typecheck, lint, knip and unit tests) runs before every commit. `git commit --no-verify` skips it.
+- Run `npm run test:e2e` when you change the UI.
 - A few things about scryfall.com are easy to trip over:
   - Its CSP drops `style` attributes, so the shadow host is laid out by the `:host` rule in `src/ui/styles.css`. Styles set from script still work.
   - It binds single-letter keyboard shortcuts on the document, so the modal stops key events from leaving it.
