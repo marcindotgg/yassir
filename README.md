@@ -1,14 +1,30 @@
-<img src="assets/icon.png" alt="Yassir logo" width="128" align="right">
+<p align="center">
+  <img src="assets/icon.png" alt="Yassir logo" width="128">
+</p>
 
-# Yassir
+<h1 align="center">Yassir</h1>
 
-**Y**et **A**nother **S**cryfall **S**earch **I**nterface **R**efinement. The name is also Arabic: yassir (يُسْر or يَسِير) means "easy", "simple" or "convenient".
+<p align="center">
+  A query builder for the search box on <a href="https://scryfall.com">scryfall.com</a>, for Chrome and Firefox.
+</p>
 
-Yassir is a browser extension for Chrome and Firefox that turns the search box on [scryfall.com](https://scryfall.com) into a query builder. Focusing the search box opens a panel with fields for name, type, colors, mana value, rarity, sets, format, price and more. The query stays plain text you can edit: typing updates the form, the form rewrites only its own terms, and conditions the form can't show appear as removable pins.
+Scryfall's search is powerful, but you have to know its syntax. Yassir adds a form to the search box: click the box, fill in the fields you care about, and the query is written for you.
+
+The name stands for **Y**et **A**nother **S**cryfall **S**earch **I**nterface **R**efinement. In Arabic, yassir (يُسْر or يَسِير) means "easy", "simple" or "convenient".
 
 [![Yassir demo: Kavu from Invasion, red, sorted by USD price](docs/assets/yassir-scryfall-demo-poster.png)](docs/assets/yassir-scryfall-demo.mp4)
 
 Click the image to watch the video.
+
+## Features
+
+- **A form for the common filters.** Name, rules text, type, colors, mana value, power, toughness, rarity, sets, format, max price, year, artist, oracle tag, flags such as foil or borderless, and sort order.
+- **The query stays editable text.** Typing in the search box updates the form, and the form rewrites only its own terms.
+- **Nothing is dropped.** Conditions the form has no field for appear as pins you can remove with a click.
+- **Suggestions as you type.** Card and creature types, sets with their symbols, and color combinations by name (guilds, shards, wedges).
+- **Search by what a card does.** [Scryfall Tagger](https://tagger.scryfall.com) is a community project that tags cards by their role, such as `removal`, `ramp` or `sweeper`. Few people know the tag names, so the oracle tag field lists them by group, each with a one-line description.
+- **Ranges and comparisons.** Number fields take `3`, `<=2`, `2-4` or `>=2020`.
+- **Private.** It runs only on scryfall.com and collects no data.
 
 ## Development
 
@@ -39,8 +55,6 @@ The e2e test loads `dist/chrome-mv3` into Playwright's Chromium, so run `npm run
 - A few things about scryfall.com are easy to trip over:
   - Its CSP drops `style` attributes, so the shadow host is laid out by the `:host` rule in `src/ui/styles.css`. Styles set from script still work.
   - It binds single-letter keyboard shortcuts on the document, so the modal stops key events from leaving it.
-  - It has no theme class. `src/ui/theme.ts` picks light or dark from the background painted behind the search box.
-
 ## Credits
 
 The oracle tag identifiers suggested in the `otag:` field (`src/lib/tag-suggestions.ts`) come from [Scryfall Tagger](https://tagger.scryfall.com), a community-maintained project for tagging Magic cards.
