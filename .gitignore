@@ -2,5 +2,6 @@ node_modules
 dist
 .wxt
 stats.html
+artifacts/
 tests/e2e/.state
 dev_docs

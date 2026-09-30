@@ -6,6 +6,10 @@
 
 Yassir is a browser extension for Chrome and Firefox that turns the search box on [scryfall.com](https://scryfall.com) into a query builder. Focusing the search box opens a panel with fields for name, type, colors, mana value, rarity, sets, format, price and more. The query stays plain text you can edit: typing updates the form, the form rewrites only its own terms, and conditions the form can't show appear as removable pins.
 
+[![Yassir demo: Kavu from Invasion, red, sorted by USD price](docs/assets/yassir-scryfall-demo-poster.png)](docs/assets/yassir-scryfall-demo.mp4)
+
+Click the image to watch the video.
+
 ## Development
 
 Requires Node.js 22 or newer.
