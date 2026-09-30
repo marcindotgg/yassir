@@ -8,8 +8,8 @@ export default defineConfig({
   outDir: 'dist',
   modules: ['@wxt-dev/auto-icons'],
   vite: () => ({ plugins: [preact()] }),
-  // Demo media is not needed to rebuild the extension, so it stays out of the Firefox sources zip.
-  zip: { excludeSources: ['docs/**', 'artifacts/**'] },
+  // Demo media and local notes are not needed to rebuild the extension, so they stay out of the Firefox sources zip.
+  zip: { excludeSources: ['docs/**', 'artifacts/**', 'dev_docs/**'] },
   hooks: {
     // The full logo is unreadable at 16px, so the glyph-only icon replaces the one auto-icons generates.
     'build:done': (wxt) => copyFile('assets/icon-16.png', resolve(wxt.config.outDir, 'icons/16.png')),
