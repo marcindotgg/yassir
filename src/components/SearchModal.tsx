@@ -227,8 +227,8 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
                   width: `${adornment.width}px`,
                   height: `${adornment.height}px`,
                 }}
-                // Scryfall's own markup (the logo's inline SVG), copied from the page.
-                dangerouslySetInnerHTML={{ __html: adornment.html }}
+                // A clone of Scryfall's own element (the logo's inline SVG).
+                ref={(host) => host?.replaceChildren(adornment.node)}
               />
             ))}
           </div>

@@ -68,7 +68,7 @@ export interface Layout {
 }
 
 export interface Adornment {
-  html: string;
+  node: Node;
   left: number;
   top: number;
   width: number;
@@ -124,7 +124,7 @@ export function snapshotAdornments(elements: Element[], input: HTMLInputElement)
   return elements.map((element) => {
     const rect = element.getBoundingClientRect();
     return {
-      html: element.outerHTML,
+      node: element.cloneNode(true),
       left: rect.left - box.left,
       top: rect.top - box.top,
       width: rect.width,
