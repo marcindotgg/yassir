@@ -1,9 +1,9 @@
 {
-  "name": "scryfall-query-builder",
+  "name": "yassir",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Advanced search builder for scryfall.com: a form-driven query builder and set-name autocomplete",
+  "description": "Yet Another Scryfall Search Interface Refinement: a form-driven query builder for scryfall.com",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox --mv3",

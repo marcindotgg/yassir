@@ -1,6 +1,10 @@
-# Scryfall Query Builder
+<img src="assets/icon.png" alt="Yassir logo" width="128" align="right">
 
-A browser extension for Chrome and Firefox that turns the search box on [scryfall.com](https://scryfall.com) into a query builder. Focusing the search box opens a panel with fields for name, type, colors, mana value, rarity, sets, format, price and more. The query stays plain text you can edit: typing updates the form, the form rewrites only its own terms, and conditions the form can't show appear as removable pins.
+# Yassir
+
+**Y**et **A**nother **S**cryfall **S**earch **I**nterface **R**efinement. The name is also Arabic: yassir (يُسْر or يَسِير) means "easy", "simple" or "convenient".
+
+Yassir is a browser extension for Chrome and Firefox that turns the search box on [scryfall.com](https://scryfall.com) into a query builder. Focusing the search box opens a panel with fields for name, type, colors, mana value, rarity, sets, format, price and more. The query stays plain text you can edit: typing updates the form, the form rewrites only its own terms, and conditions the form can't show appear as removable pins.
 
 ## Development
 
@@ -31,3 +35,5 @@ The e2e test loads `dist/chrome-mv3` into Playwright's Chromium, so run `npm run
   - Its CSP drops `style` attributes, so the shadow host is laid out by the `:host` rule in `src/ui/styles.css`. Styles set from script still work.
   - It binds single-letter keyboard shortcuts on the document, so the modal stops key events from leaving it.
   - It has no theme class. `src/ui/theme.ts` picks light or dark from the background painted behind the search box.
+
+Yassir is not affiliated with or endorsed by Scryfall.
