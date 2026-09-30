@@ -40,4 +40,6 @@ The e2e test loads `dist/chrome-mv3` into Playwright's Chromium, so run `npm run
   - It binds single-letter keyboard shortcuts on the document, so the modal stops key events from leaving it.
   - It has no theme class. `src/ui/theme.ts` picks light or dark from the background painted behind the search box.
 
-Yassir is not affiliated with or endorsed by Scryfall.
+## License
+
+[MIT](LICENSE). Yassir is not affiliated with or endorsed by Scryfall.

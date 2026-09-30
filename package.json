@@ -2,6 +2,7 @@
   "name": "yassir",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Yet Another Scryfall Search Interface Refinement: a form-driven query builder for scryfall.com",
   "scripts": {
