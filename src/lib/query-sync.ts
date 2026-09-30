@@ -37,7 +37,17 @@ const COMBO_COLORS = new Map(
   COLOR_COMBO_GROUPS.flatMap((group) => group.combos.map((combo) => [combo.name, combo.colors] as const)),
 );
 const RARITY_LETTERS: Record<string, string> = { c: 'common', u: 'uncommon', r: 'rare', m: 'mythic', s: 'special' };
-const MULTI_CONDITION_FIELDS: ReadonlySet<FieldId> = new Set(['name', 'rulesText', 'type', 'otag', 'flags']);
+const MULTI_CONDITION_FIELDS: ReadonlySet<FieldId> = new Set([
+  'name',
+  'rulesText',
+  'type',
+  'otag',
+  'flags',
+  'manaValue',
+  'power',
+  'toughness',
+  'year',
+]);
 
 const FIELD_READERS: Record<FieldId, FieldReader> = {
   name: (node, state) => {
@@ -216,9 +226,9 @@ function wordReader(
 }
 
 function comparisonReader(field: 'manaValue' | 'power' | 'toughness' | 'year', keys: readonly string[]): FieldReader {
-  return (node) => {
+  return (node, state) => {
     const term = matchTerm(node, keys, COMPARISON);
-    return term && { [field]: fieldComparison(term) };
+    return term && { [field]: appendWord(state[field], fieldComparison(term)) };
   };
 }
 

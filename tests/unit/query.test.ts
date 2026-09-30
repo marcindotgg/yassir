@@ -178,6 +178,17 @@ describe('writing the form into the query', () => {
     expect(edit('is:foil t:elf is:promo', { flags: ['promo'] })).toBe('is:promo t:elf');
     expect(edit('is:foil t:elf', { flags: ['foil', 'promo'] })).toBe('is:foil is:promo t:elf');
     expect(edit('otag:removal t:elf', { otag: 'removal ramp' })).toBe('otag:removal otag:ramp t:elf');
+    expect(edit('year<2000 t:elf', { year: '<2000 >' })).toBe('year<2000 t:elf');
+    expect(edit('year<2000 t:elf', { year: '<2000 > 2003' })).toBe('year<2000 year>2003 t:elf');
+    expect(readQuery('mv>=2 t:elf mv<=4').state.manaValue).toBe('>=2 <=4');
+  });
+
+  it('writes a range as both of its bounds', () => {
+    expect(buildQuery({ ...EMPTY_QUERY, year: '2000-2003' })).toBe('year>=2000 year<=2003');
+    expect(buildQuery({ ...EMPTY_QUERY, manaValue: '0.5 .. 2' })).toBe('mv>=0.5 mv<=2');
+    expect(buildQuery({ ...EMPTY_QUERY, year: '2000-' })).toBe('year>=2000');
+    expect(buildQuery({ ...EMPTY_QUERY, power: '-1' })).toBe('pow=-1');
+    expect(edit('year=2000 t:elf', { year: '2000-2003' })).toBe('year>=2000 year<=2003 t:elf');
   });
 
   it('turns an alternative into an or-group where the field stood', () => {

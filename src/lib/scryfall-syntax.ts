@@ -252,9 +252,16 @@ function orGroup(terms: string[]): string[] {
   return terms.length > 1 ? [`(${terms.join(' or ')})`] : terms;
 }
 
+/**
+ * `>=2000 <=2003` -> one term per comparison; a lone trailing operator writes nothing yet.
+ * A range `2000-2003` (or `2000..2003`) is both bounds, and `2000-` is open-ended.
+ */
 function comparisonTerms(key: string, input: string): string[] {
-  const [, operator = '=', value] = input.trim().match(/^(<=|>=|!=|=|<|>)?\s*(.*)$/) ?? [];
-  return value ? [`${key}${operator}${value}`] : [];
+  const pattern = /(\d+(?:\.\d+)?)\s*(?:-|\.\.)\s*(\d+(?:\.\d+)?)?|(<=|>=|!=|=|<|>)?\s*([^\s<>=!]+)/g;
+  return [...input.matchAll(pattern)].flatMap(([, from, to, operator = '=', value]) => {
+    if (from) return to ? [`${key}>=${from}`, `${key}<=${to}`] : [`${key}>=${from}`];
+    return [`${key}${operator}${value}`];
+  });
 }
 
 function splitWords(input: string): string[] {

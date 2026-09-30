@@ -146,7 +146,7 @@ function CardFields({ state, onChange, setList }: FormProps & { setList: SetList
           value={{ colors: state.colors, colorless: state.colorless, colorCombos: state.colorCombos }}
           onChange={(colors) => onChange((s) => ({ ...s, ...colors }))}
         />
-        <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, >=4" />
+        <TextField {...form} field="manaValue" label="Mana value (mv)" placeholder="e.g. 3, <=2, 2-4" />
       </div>
       <SuggestField
         {...form}
@@ -188,7 +188,7 @@ function OtherFields({ state, onChange }: FormProps) {
   return (
     <div class="sqb-builder-column sqb-builder-aside">
       <PriceField {...form} />
-      <TextField {...form} field="year" label="Year" placeholder="e.g. 2020, >=2020" />
+      <TextField {...form} field="year" label="Year" placeholder="e.g. 2020, >=2020, 2000-2003" />
       <label class="sqb-field">
         <span class="sqb-label">Format (f:)</span>
         <select class="sqb-select" value={state.format} onChange={(e) => setField('format', e.currentTarget.value)}>
