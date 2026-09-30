@@ -24,7 +24,7 @@ export default defineConfig({
     ...(browser === 'firefox'
       ? {
           browser_specific_settings: {
-            gecko: { id: 'yassir@local', strict_min_version: '121.0' },
+            gecko: { id: 'yassir_extension@mtgenie.com', strict_min_version: '121.0' },
           },
         }
       : {}),
