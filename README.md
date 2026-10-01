@@ -2,10 +2,10 @@
   <img src="assets/icon.png" alt="Yassir logo" width="128">
 </p>
 
-<h1 align="center">Yassir</h1>
+<h1 align="center">Yassir – Query Builder for Scryfall</h1>
 
 <p align="center">
-  A query builder for the search box on <a href="https://scryfall.com">scryfall.com</a>, for Chrome and Firefox.
+  A browser extension for Chrome and Firefox that adds a query builder to the search box on <a href="https://scryfall.com">scryfall.com</a>.
 </p>
 
 Scryfall's search is powerful, but you have to know its syntax. Yassir adds a form to the search box: click the box, fill in the fields you care about, and the query is written for you.
