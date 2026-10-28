@@ -8,6 +8,11 @@
   A browser extension for Chrome and Firefox that adds a query builder to the search box on <a href="https://scryfall.com">scryfall.com</a>.
 </p>
 
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/pokjijoahhidfepdphnjfknmemehimjl"><img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/pokjijoahhidfepdphnjfknmemehimjl?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white"></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/yassir-scryfall-query-builder/"><img alt="Firefox Add-ons" src="https://img.shields.io/amo/v/yassir-scryfall-query-builder?label=Firefox%20Add-ons&logo=firefoxbrowser&logoColor=white"></a>
+</p>
+
 Scryfall's search is powerful, but you have to know its syntax. Yassir adds a form to the search box: click the box, fill in the fields you care about, and the query is written for you.
 
 The name stands for **Y**et **A**nother **S**cryfall **S**earch **I**nterface **R**efinement. In Arabic, yassir (يُسْر or يَسِير) means "easy", "simple" or "convenient".
@@ -15,6 +20,11 @@ The name stands for **Y**et **A**nother **S**cryfall **S**earch **I**nterface **
 [![Yassir demo: Kavu from Invasion, red, sorted by USD price](docs/assets/yassir-scryfall-demo-poster.png)](docs/assets/yassir-scryfall-demo.gif)
 
 Click the image to see Yassir in action.
+
+## Install
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/pokjijoahhidfepdphnjfknmemehimjl)
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/yassir-scryfall-query-builder/) (Firefox 121 or newer)
 
 ## Features
 
