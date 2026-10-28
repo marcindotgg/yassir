@@ -409,6 +409,38 @@ await step('Escape closes it and gives focus back to the real box', async () => 
   return 'closed, input#q visible and focused';
 });
 
+await step('a drag across the box selects text first, then the modal opens with it selected', async () => {
+  const isOpen = () =>
+    inPage(() => !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'));
+  await inPage(() => document.querySelector('input#q').blur());
+  const box = await page.locator('input#q').boundingBox();
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width - 8, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, y, { steps: 4 });
+  const openMidDrag = await isOpen();
+  await page.mouse.move(box.x + 8, y, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForFunction(
+    () => !!document.querySelector('scryfall-query-builder')?.shadowRoot?.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 5000 },
+  );
+  const sel = await inPage(() => {
+    const mirror = document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror');
+    return { start: mirror.selectionStart, end: mirror.selectionEnd, length: mirror.value.length };
+  });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 2000 },
+  );
+  if (openMidDrag) throw new Error('opened before the mouse was released');
+  if (sel.start !== 0 || sel.end !== sel.length || sel.length === 0) throw new Error(JSON.stringify(sel));
+  return `opened on release with 0–${sel.end} selected`;
+});
+
 await step('Enter in the modal runs the search', async () => {
   await page.click('input#q');
   await page.waitForFunction(

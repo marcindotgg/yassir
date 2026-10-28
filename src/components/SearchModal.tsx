@@ -110,8 +110,19 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       setQuery({ value: input.value, typing: false, searching: false });
       setSession(next);
     };
-    const openOnClickWhileFocused = () => {
-      if (!isOpen.current && document.activeElement === input) open();
+    // A press focuses the input on mousedown. Opening right then would cut the user's text
+    // selection short, so the sheet waits for the release and takes over what got selected.
+    let pressing = false;
+    const openOnFocus = () => {
+      if (!pressing) open();
+    };
+    const deferOpenToRelease = (event: MouseEvent) => {
+      if (event.button === 0 && !isOpen.current) pressing = true;
+    };
+    const openOnRelease = () => {
+      if (!pressing) return;
+      pressing = false;
+      if (document.activeElement === input) open();
     };
     const followExternalInput = () => {
       if (isOpen.current && input.value !== mirrorRef.current?.value)
@@ -121,14 +132,17 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
       if (event.persisted && isOpen.current) teardown(false);
     };
 
-    input.addEventListener('focus', open);
-    input.addEventListener('click', openOnClickWhileFocused);
+    input.addEventListener('mousedown', deferOpenToRelease);
+    input.addEventListener('focus', openOnFocus);
     input.addEventListener('input', followExternalInput);
+    // The drag may end outside the input, where Scryfall could stop the event before it bubbles.
+    window.addEventListener('mouseup', openOnRelease, true);
     window.addEventListener('pageshow', closeOnBackForwardRestore);
     return () => {
-      input.removeEventListener('focus', open);
-      input.removeEventListener('click', openOnClickWhileFocused);
+      input.removeEventListener('mousedown', deferOpenToRelease);
+      input.removeEventListener('focus', openOnFocus);
       input.removeEventListener('input', followExternalInput);
+      window.removeEventListener('mouseup', openOnRelease, true);
       window.removeEventListener('pageshow', closeOnBackForwardRestore);
       window.clearTimeout(closeTimer.current);
       revealOriginal();
