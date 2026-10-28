@@ -17,9 +17,7 @@ Scryfall's search is powerful, but you have to know its syntax. Yassir adds a fo
 
 The name stands for **Y**et **A**nother **S**cryfall **S**earch **I**nterface **R**efinement. In Arabic, yassir (يُسْر or يَسِير) means "easy", "simple" or "convenient".
 
-[![Yassir demo: Kavu from Invasion, red, sorted by USD price](docs/assets/yassir-scryfall-demo-poster.png)](docs/assets/yassir-scryfall-demo.gif)
-
-Click the image to see Yassir in action.
+<video src="https://github.com/user-attachments/assets/2bc170d1-1bf5-4f82-8f97-c8b60152feb9" controls></video>
 
 ## Install
 
