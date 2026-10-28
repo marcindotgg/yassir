@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { doubleClickRange } from '../lib/double-click';
 import { type Condition, readQuery, removeCondition, writeQuery } from '../lib/query-sync';
 import type { QueryState } from '../lib/scryfall-syntax';
 import { afterAnimation } from '../ui/motion';
@@ -35,6 +36,9 @@ interface Session {
 // Scryfall binds single-letter shortcuts on the document. A key typed in our shadow root reaches it
 // with the shadow host as its target, not an input, so it would be taken for a shortcut.
 const stopKey = (event: KeyboardEvent) => event.stopPropagation();
+
+// Most double clicks come faster than this; the system's own limit is out of reach of a web page.
+const MORE_CLICKS_MS = 250;
 
 export function SearchModal({ input, adornments, submit }: SearchModalProps) {
   const [session, setSession] = useState<Session | null>(null);
@@ -112,17 +116,55 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     };
     // A press focuses the input on mousedown. Opening right then would cut the user's text
     // selection short, so the sheet waits for the release and takes over what got selected.
+    // After a click or a double click it waits a little longer, for the rest of a double or triple
+    // click. A slower one still lands on the sheet, which by then has moved out from under the
+    // pointer, so it selects from where the first click put the caret.
     let pressing = false;
+    let clickedAt: number | null = null;
+    let releaseTimer = 0;
     const openOnFocus = () => {
       if (!pressing) open();
     };
     const deferOpenToRelease = (event: MouseEvent) => {
-      if (event.button === 0 && !isOpen.current) pressing = true;
+      if (event.button !== 0 || isOpen.current) return;
+      window.clearTimeout(releaseTimer);
+      pressing = true;
     };
-    const openOnRelease = () => {
+    const openAfterPress = () => {
+      if (document.activeElement !== input) return;
+      clickedAt = input.selectionStart;
+      open();
+    };
+    const openOnRelease = (event: MouseEvent) => {
       if (!pressing) return;
       pressing = false;
-      if (document.activeElement === input) open();
+      const clicks = event.detail;
+      // A press inside an earlier selection moves the caret only in the release's default action.
+      releaseTimer = window.setTimeout(() => {
+        // A drag or a triple click is done; a click or a double click may go on, unless there is no text.
+        const done = input.value === '' || (input.selectionStart !== input.selectionEnd && clicks !== 2);
+        if (done) openAfterPress();
+        else releaseTimer = window.setTimeout(openAfterPress, MORE_CLICKS_MS);
+      });
+    };
+    const continueClicks = (event: MouseEvent) => {
+      if (clickedAt === null) return;
+      const mirror = mirrorRef.current;
+      if (event.detail < 2 || !isOpen.current || !mirror) {
+        clickedAt = null;
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.detail === 2) mirror.setSelectionRange(...doubleClickRange(mirror.value, clickedAt));
+      else mirror.select();
+    };
+    // Whatever these clicks landed on, a field or the backdrop, they were meant for the query. Chrome
+    // would also collapse the selection on their release when the first click landed in a selection.
+    const swallowContinuedClick = (event: MouseEvent) => {
+      if (clickedAt === null || event.detail < 2) return;
+      event.preventDefault();
+      event.stopPropagation();
     };
     const followExternalInput = () => {
       if (isOpen.current && input.value !== mirrorRef.current?.value)
@@ -137,13 +179,20 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     input.addEventListener('input', followExternalInput);
     // The drag may end outside the input, where Scryfall could stop the event before it bubbles.
     window.addEventListener('mouseup', openOnRelease, true);
+    window.addEventListener('mousedown', continueClicks, true);
+    window.addEventListener('mouseup', swallowContinuedClick, true);
+    window.addEventListener('click', swallowContinuedClick, true);
     window.addEventListener('pageshow', closeOnBackForwardRestore);
     return () => {
       input.removeEventListener('mousedown', deferOpenToRelease);
       input.removeEventListener('focus', openOnFocus);
       input.removeEventListener('input', followExternalInput);
       window.removeEventListener('mouseup', openOnRelease, true);
+      window.removeEventListener('mousedown', continueClicks, true);
+      window.removeEventListener('mouseup', swallowContinuedClick, true);
+      window.removeEventListener('click', swallowContinuedClick, true);
       window.removeEventListener('pageshow', closeOnBackForwardRestore);
+      window.clearTimeout(releaseTimer);
       window.clearTimeout(closeTimer.current);
       revealOriginal();
     };

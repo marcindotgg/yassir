@@ -441,6 +441,77 @@ await step('a drag across the box selects text first, then the modal opens with 
   return `opened on release with 0–${sel.end} selected`;
 });
 
+const mirrorSelection = () =>
+  inPage(() => {
+    const mirror = document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror');
+    return mirror ? mirror.value.slice(mirror.selectionStart, mirror.selectionEnd) : null;
+  });
+// Clicks into "instant" in input#q `count` times, `gapMs` apart; tells whether the modal stayed shut until the last one.
+const clickIntoInstant = async (count, gapMs) => {
+  await inPage(() => document.querySelector('input#q').blur());
+  const { x, y } = await inPage(() => {
+    const input = document.querySelector('input#q');
+    const cs = getComputedStyle(input);
+    const text = document.createElement('canvas').getContext('2d');
+    text.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const box = input.getBoundingClientRect();
+    const intoTheWord = input.value.slice(0, input.value.indexOf('instant') + 3);
+    return {
+      x: box.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft) + text.measureText(intoTheWord).width,
+      y: box.top + box.height / 2,
+    };
+  });
+  await page.mouse.move(x, y);
+  let shut = true;
+  for (let clickCount = 1; clickCount <= count; clickCount++) {
+    if (clickCount > 1) {
+      await page.waitForTimeout(gapMs);
+      if ((await mirrorSelection()) !== null) shut = false;
+    }
+    await page.mouse.down({ clickCount });
+    await page.mouse.up({ clickCount });
+  }
+  return shut;
+};
+const selectionOnceOpen = async () => {
+  await page.waitForFunction(
+    () => !!document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 2000 },
+  );
+  return mirrorSelection();
+};
+const closeModal = async () => {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => !document.querySelector('scryfall-query-builder').shadowRoot.querySelector('.sqb-mirror'),
+    null,
+    { timeout: 2000 },
+  );
+};
+
+await step('a double or triple click selects in Scryfall’s box first, then the modal opens with it', async () => {
+  const shutForDouble = await clickIntoInstant(2, 120);
+  const word = await selectionOnceOpen();
+  await closeModal();
+  const shutForTriple = await clickIntoInstant(3, 120);
+  const all = await selectionOnceOpen();
+  const query = await mirrorValue();
+  await closeModal();
+  if (!shutForDouble || !shutForTriple) throw new Error('the modal opened in the middle of the clicks');
+  if (word !== 'instant' || all !== query) throw new Error(JSON.stringify({ word, all, query }));
+  return `"${word}", then "${all}"`;
+});
+
+await step('a slow double click lands on the opened modal and still selects the word under it', async () => {
+  const shut = await clickIntoInstant(2, 500);
+  const word = await selectionOnceOpen();
+  await closeModal();
+  if (shut) throw new Error('the modal did not open between the clicks');
+  if (word !== 'instant') throw new Error(`selected ${JSON.stringify(word)}`);
+  return `"${word}"`;
+});
+
 await step('Enter in the modal runs the search', async () => {
   await page.click('input#q');
   await page.waitForFunction(
@@ -514,6 +585,29 @@ await step('Escape on /search hands focus back to the header box', async () => {
   const focused = await inPage(() => document.activeElement === document.querySelector('#header-search-field'));
   if (!focused) throw new Error('header box not focused');
   return 'closed after the close animation, header box focused';
+});
+
+await step('an empty box opens on release, without waiting for more clicks', async () => {
+  await inPage(() => {
+    const input = document.querySelector('#header-search-field');
+    input.value = '';
+    input.blur();
+    const root = document.querySelector('scryfall-query-builder').shadowRoot;
+    let releasedAt = 0;
+    window.addEventListener('mouseup', () => (releasedAt = performance.now()), { capture: true, once: true });
+    window.sqbOpenedAfter = new Promise((resolve) =>
+      new MutationObserver((_, observer) => {
+        if (!root.querySelector('.sqb-mirror')) return;
+        observer.disconnect();
+        resolve(performance.now() - releasedAt);
+      }).observe(root, { childList: true, subtree: true }),
+    );
+  });
+  await page.click('#header-search-field');
+  const ms = await inPage(() => window.sqbOpenedAfter);
+  await closeModal();
+  if (ms > 100) throw new Error(`opened ${Math.round(ms)}ms after the release`);
+  return `opened ${Math.round(ms)}ms after the release`;
 });
 
 await ctx.close();
