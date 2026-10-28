@@ -5,3 +5,4 @@ stats.html
 artifacts/
 tests/e2e/.state
 dev_docs
+.env.submit
