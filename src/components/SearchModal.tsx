@@ -15,7 +15,7 @@ import {
   sheetStyle,
   snapshotAdornments,
 } from '../ui/sheet';
-import { QueryBuilder } from './QueryBuilder';
+import { QUERY_FORM_ID, QueryBuilder } from './QueryBuilder';
 import { useEvent } from './useEvent';
 import { useSets } from './useSets';
 
@@ -226,6 +226,7 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
     updateQuery(removeCondition(input.value, condition));
     keepFocusInSheet();
   };
+  const isEmpty = !query.value.trim();
   const clear = () => {
     updateQuery('');
     keepFocusInSheet();
@@ -308,11 +309,31 @@ export function SearchModal({ input, adornments, submit }: SearchModalProps) {
               searching={query.searching}
               setList={setList}
               onRemove={remove}
-              onClear={clear}
               onSearch={search}
             />
           </section>
         </div>
+
+        <footer class="sqb-sheet-foot">
+          <a href="https://github.com/marcindotgg/yassir/issues" target="_blank" rel="noopener noreferrer">
+            Report a bug or suggest a feature
+          </a>
+          <div class="sqb-row">
+            <button type="button" class="sqb-btn sqb-btn-ghost" disabled={isEmpty} onClick={clear}>
+              Clear
+            </button>
+            <button
+              type="submit"
+              form={QUERY_FORM_ID}
+              class={`sqb-btn sqb-btn-primary${query.searching ? ' sqb-btn-busy' : ''}`}
+              disabled={isEmpty}
+              aria-busy={query.searching}
+            >
+              {query.searching && <span class="sqb-spinner" aria-hidden="true" />}
+              {query.searching ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   );

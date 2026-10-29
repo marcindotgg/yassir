@@ -35,9 +35,12 @@ interface QueryBuilderProps extends FormProps {
   searching: boolean;
   setList: SetList;
   onRemove: (condition: Condition) => void;
-  onClear: () => void;
   onSearch: () => void;
 }
+
+// The Search button sits in the sheet's footer, outside the form, and joins it by this id. Being the
+// form's submit button keeps Enter in any field submitting.
+export const QUERY_FORM_ID = 'sqb-query-form';
 
 const POPULAR_ARTISTS = [
   'John Avon',
@@ -79,7 +82,6 @@ export function QueryBuilder({
   searching,
   setList,
   onRemove,
-  onClear,
   onSearch,
 }: QueryBuilderProps) {
   const setField = fieldSetter(onChange);
@@ -92,7 +94,7 @@ export function QueryBuilder({
   };
 
   return (
-    <form class="sqb-stack sqb-builder" onSubmit={submit}>
+    <form id={QUERY_FORM_ID} class="sqb-stack sqb-builder" onSubmit={submit}>
       <div class="sqb-builder-columns">
         <CardFields state={state} onChange={onChange} setList={setList} />
         <OtherFields state={state} onChange={onChange} />
@@ -115,21 +117,6 @@ export function QueryBuilder({
       </div>
 
       <ConditionPins conditions={otherConditions} typing={typing} sets={setList.sets} onRemove={onRemove} />
-
-      <div class="sqb-row sqb-actions">
-        <button type="button" class="sqb-btn sqb-btn-ghost" disabled={isEmpty} onClick={onClear}>
-          Clear
-        </button>
-        <button
-          type="submit"
-          class={`sqb-btn sqb-btn-primary${searching ? ' sqb-btn-busy' : ''}`}
-          disabled={isEmpty}
-          aria-busy={searching}
-        >
-          {searching && <span class="sqb-spinner" aria-hidden="true" />}
-          {searching ? 'Searching…' : 'Search'}
-        </button>
-      </div>
     </form>
   );
 }
