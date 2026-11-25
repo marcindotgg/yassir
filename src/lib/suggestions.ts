@@ -17,11 +17,9 @@ export function filterSuggestions(
   return groups
     .map((group) => ({
       label: group.label,
-      items: group.items.filter((item) => {
-        const lower = item.toLowerCase();
-        if (lower === query) return false;
-        return lower.includes(query) || !!descriptions?.get(item)?.toLowerCase().includes(query);
-      }),
+      items: group.items.filter(
+        (item) => item.toLowerCase().includes(query) || !!descriptions?.get(item)?.toLowerCase().includes(query),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 }

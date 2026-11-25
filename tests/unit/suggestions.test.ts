@@ -19,7 +19,7 @@ describe('oracle tag suggestions', () => {
     const [removal] = filterSuggestions(TAG_GROUPS, 'removal');
     expect(removal!.label).toBe('Removal');
     expect(removal!.items).toContain('spot-removal');
-    expect(removal!.items).not.toContain('removal');
+    expect(removal!.items[0]).toBe('removal');
     expect(filterSuggestions(TAG_GROUPS, 'ROCK').flatMap((g) => g.items)).toEqual(['mana-rock']);
   });
 
